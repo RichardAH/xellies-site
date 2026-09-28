@@ -40,6 +40,10 @@ window.XELLIES_CONFIG = {
   // account shows the keeper settings panel. Leave empty to hide it.
   KEEPER: "rMCouhZ7x83FDCgXfaew3pfn4CD15uD4sv",
 
+  // Jellies born before this ledger show a Founder mark. Set it to the ledger
+  // where the public launch opens; 0 turns the mark off.
+  FOUNDER_BEFORE_LEDGER: 0,
+
   // Used only to turn ledger counts into rough times for players.
   SECONDS_PER_LEDGER: 3.6,
 
@@ -473,7 +477,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
       </div>
     </div>
     <h3 style="margin-top:56px">How hard is it to guess?</h3>
-    <p style="max-width:38em;color:var(--muted)">Every rule is public and every allele is on the ledger, so nothing here is secret. The outcome is still hard to call. Each spawn makes over 200 independent random decisions from a seed that doesn't exist until the ledger closes. Even knowing both parents' full genomes, the best possible guess at any single trait of the offspring is right about 33% of the time, and the whole look almost never.</p>
+    <p style="max-width:38em;color:var(--muted)">The rules are laid out on this page and every allele is on the ledger. The outcome is still hard to call. Each spawn makes over 200 independent random decisions from a seed that doesn't exist until the ledger closes. Even knowing both parents' full genomes, the best possible guess at any single trait of the offspring is right about 33% of the time, and the whole look almost never.</p>
   </div>
 </section>
 
@@ -489,19 +493,19 @@ footer .wrap{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
     </ol>
     <div class="verify">
       <div>
-        <h3>Verify, don't trust</h3>
-        <p style="color:var(--muted);margin:0 0 12px">Each hook's bytecode is referenced on ledger by its HookHash, the SHA-256 of the wasm. Build the source in a pinned container, hash it, compare. If the digests match, the published code is the running code.</p>
-        <p style="color:var(--muted);margin:0">Both hooks pass Xahau's guard checker: about 47,000 and 53,000 worst-case instructions of the 65,535 allowed. That ceiling is why the design uses two hooks rather than one.</p>
+        <h3>What you can check</h3>
+        <p style="color:var(--muted);margin:0 0 12px">The hook code isn't published. What is public is everything it does: every hatch, roll, mint and spawn is a transaction on Xahau, and every jelly's genome sits in its token for anyone to read.</p>
+        <p style="color:var(--muted);margin:0 0 12px">The installed code is pinned on ledger by its HookHash, the SHA-512Half of the bytecode. These are the hashes on the Reef today. If the code ever changes, the hash on the Reef account changes with it, publicly.</p>
+        <p style="color:var(--muted);margin:0">If a mint ever fails after you've paid, the failure is recorded on ledger under your transaction id, and that id is your refund claim.</p>
       </div>
-<pre>$ HOOKAPI=./hookapi ./build.sh
-genetics: C vs JS parity
-2000 genomes compared, 0 mismatches
-Hook validation successful!   <span style="color:#6B8F90"># reef_pay</span>
-Hook validation successful!   <span style="color:#6B8F90"># reef_roll</span>
-&lt;sha256&gt;  build/reef_pay.wasm
-&lt;sha256&gt;  build/reef_roll.wasm
+<pre><span style="color:#6B8F90"># rXELLiESgJYepe35dbkpPByi3uas6jLAW</span>
+reef_pay   Payment
+79A95012A061E06CDF43D4CB969201FB
+87C818F0529F356099456962AF90CA79
 
-<span style="color:#6B8F90"># compare with the HookHash entries on the Reef account</span></pre>
+reef_roll  Invoke
+56F110C75E23CF37742BB889F5A4C4E3
+5F57BD4E695BBC4637ECC6835022480E</pre>
     </div>
   </div>
 </section>
@@ -511,11 +515,11 @@ Hook validation successful!   <span style="color:#6B8F90"># reef_roll</span>
     <div class="two" style="margin-top:0">
       <div>
         <h2>Proposed numbers</h2>
-        <p style="color:var(--muted)">All of these are keeper-settable state, not constants, except the rest schedule and vitality range, which are in the hook.</p>
+        <p style="color:var(--muted)">Prices and supply are set per wave. The rest schedule and vitality range are fixed in the hook.</p>
         <table class="plain">
           <tbody>
             <tr><td>Genesis polyps, first season</td><td>4,096</td></tr>
-            <tr><td>Hatch price</td><td>20 XAH</td></tr>
+            <tr><td>Hatch price</td><td>Rises with each genesis wave</td></tr>
             <tr><td>Spawn fee</td><td>5 XAH</td></tr>
             <tr><td>Maturity</td><td>4,096 ledgers</td></tr>
             <tr><td>Rest after spawn <i>n</i></td><td>900 × 2<sup>n</sup> ledgers</td></tr>
@@ -541,7 +545,7 @@ Hook validation successful!   <span style="color:#6B8F90"># reef_roll</span>
     <div class="lessons">
       <dl>
         <h3>From CryptoKitties</h3>
-        <dt>Dormant alleles</dt><dd>Kept, and published openly. Four alleles per trait plus per-slot drift make breeding a puzzle with real surprises.</dd>
+        <dt>Dormant alleles</dt><dd>Kept, and explained openly. Four alleles per trait plus per-slot drift make breeding a puzzle with real surprises.</dd>
         <dt>Cooldowns that grow</dt><dd>Kept, and paired with a hard vitality cap, because cooldowns alone slowed supply without ever stopping it.</dd>
         <dt>Gas-heavy breeding</dt><dd>Avoided. Hooks run inside the ledger at Xahau's fees, so spawning stays cheap as the game grows.</dd>
         <dt>Siring market</dt><dd>Planned for v2 as on-ledger sire offers, paid out by an emitted Payment.</dd>
@@ -550,7 +554,7 @@ Hook validation successful!   <span style="color:#6B8F90"># reef_roll</span>
         <h3>From XahauCards</h3>
         <dt>Pay, then roll a ledger later</dt><dd>Adopted. Randomness from a hash that didn't exist at signing time.</dd>
         <dt>Record before you emit</dt><dd>Adopted. Every purchase is written down first; a failed mint is marked on ledger, visible and refundable.</dd>
-        <dt>Reproducible builds and published hashes</dt><dd>Adopted, with a build script that also proves the website and the hook share one genetics engine.</dd>
+        <dt>Hashes pinned on ledger</dt><dd>Adopted. The Reef's HookHashes are listed here, so any change to the running code shows up on ledger.</dd>
         <dt>Self-describing tokens</dt><dd>Taken further: the genome is the URI, so a Xellie can be rendered from the ledger alone.</dd>
       </dl>
     </div>
@@ -943,8 +947,8 @@ async function readReef() {
   const [price, spawn, genesis, bloom, mature, now] = await Promise.all([
     hookState(asciiHex("PRICE")), hookState(asciiHex("SPAWN")), hookState(asciiHex("GENESIS")),
     hookState(asciiHex("BLOOM")), hookState(asciiHex("MATURE")), ledgerNow()]);
-  reef.price = price ? BigInt("0x" + price) : null;
-  reef.spawn = spawn ? BigInt("0x" + spawn) : null;
+  reef.price = price && BigInt("0x" + price) > 0n ? BigInt("0x" + price) : null;   // 0 means closed
+  reef.spawn = spawn && BigInt("0x" + spawn) > 0n ? BigInt("0x" + spawn) : null;
   reef.genesis = genesis ? u32(genesis, 0) : 0;
   reef.bloom = bloom ? u32(bloom, 0) : 0;
   reef.mature = mature ? u32(mature, 0) : (CFG.DEFAULT_MATURE || 4096);
@@ -1220,7 +1224,8 @@ function renderMine() {
     b.disabled = !st.ready;
     const cv = document.createElement("canvas"); cv.setAttribute("aria-hidden", "true");
     const nm = document.createElement("i"); nm.textContent = R.nameOf(j.genome);
-    const sub = document.createElement("span"); sub.textContent = `Gen ${j.genome[24]}, ${R.TIERNAME[p.tier]}`;
+    const founder = CFG.FOUNDER_BEFORE_LEDGER && j.life && u32(j.life, 0) < CFG.FOUNDER_BEFORE_LEDGER;
+    const sub = document.createElement("span"); sub.textContent = `Gen ${j.genome[24]}, ${R.TIERNAME[p.tier]}${founder ? ", Founder" : ""}`;
     const s = document.createElement("span"); s.className = "st"; s.textContent = st.text;
     const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.append(nm, sub, s);
     b.append(cv, lbl);
