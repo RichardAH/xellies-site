@@ -1,0 +1,1298 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Xellies — jellyfish that breed on Xahau</title>
+<script>
+// ===================== XELLIES CONFIGURATION: edit this block =====================
+// Everything in this file is public. Put only the Xaman API *key* here, never the secret.
+window.XELLIES_CONFIG = {
+  // Public API key from https://apps.xumm.dev (Xaman Developer Console).
+  // Register this site's origin and redirect URL there, or sign-in will fail.
+  XAMAN_API_KEY: "f332b9f8-a52d-461c-8cb3-dc1f5f50df41",
+
+  // Which network the site plays on.
+  NETWORK: "mainnet",   // "mainnet" (wss://xahau.network) or "testnet"
+
+  NETWORKS: {
+    testnet: {
+      label: "Xahau Testnet",
+      XAMAN_NETWORK: "XAHAUTESTNET",          // Xaman force_network value
+      WSS: "wss://xahau-test.net",
+      REEF: "rXELLiESgJYepe35dbkpPByi3uas6jLAW",
+      EXPLORER_TX: "https://xahau-testnet.xrplwin.com/tx/"
+    },
+    mainnet: {
+      label: "Xahau",
+      XAMAN_NETWORK: "XAHAU",
+      WSS: "wss://xahau.network",
+      REEF: "rXELLiESgJYepe35dbkpPByi3uas6jLAW",
+      EXPLORER_TX: "https://xahau.xrplwin.com/tx/"
+    }
+  },
+
+  // HookNamespace both hooks are installed with: SHA-256("xellies").
+  // Must match the SetHook transaction exactly, or the site reads empty state.
+  NAMESPACE: "00A9B3361A8D0218CFD9473479D99402AF5C6FD75165F8CD042F222F923361EB",
+
+  // The keeper account (the hook's KEEPER parameter). Signing in as this
+  // account shows the keeper settings panel. Leave empty to hide it.
+  KEEPER: "",
+
+  // Used only to turn ledger counts into rough times for players.
+  SECONDS_PER_LEDGER: 3.6,
+
+  // Must match the hook's COOLDOWN_BASE (reef.h); used for display only.
+  COOLDOWN_BASE: 900,
+  DEFAULT_MATURE: 4096
+};
+// ================================ end of configuration ===============================
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,500;1,300;1,500&family=Hanken+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#E3EDEB; --paper-2:#D5E3E1; --ink:#0C2A33; --muted:#4F6F78; --rule:#B4C9C9;
+  --tank:#03121A; --tank-2:#072433; --lume:#128C7E; --bloom:#C0397F;
+  --chip-c:#9FB6B8; --chip-t:#2BB5A5; --chip-a:#3E6FD8; --chip-m:#9B5BE0; --chip-b:#E24FA6;
+  --serif:"Cormorant Garamond","Iowan Old Style","Palatino Linotype",Georgia,serif;
+  --sans:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#041820; --paper-2:#07222C; --ink:#D5E8E6; --muted:#87A7AC; --rule:#17363F;
+    --lume:#6CF0DC; --bloom:#FF8AD8; --chip-c:#557077;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#041820; --paper-2:#07222C; --ink:#D5E8E6; --muted:#87A7AC; --rule:#17363F;
+  --lume:#6CF0DC; --bloom:#FF8AD8; --chip-c:#557077;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{scroll-padding-top:env(safe-area-inset-top,0px);scroll-behavior:smooth}
+@media (prefers-reduced-motion: reduce){html{scroll-behavior:auto}}
+body{margin:0;background:var(--paper);color:var(--ink);font:400 17px/1.6 var(--sans);-webkit-font-smoothing:antialiased}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--lume);outline-offset:3px;border-radius:4px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+canvas{display:block}
+
+/* hero: the page opens inside the tank */
+.hero{position:relative;background:var(--tank);color:#E6F4F2;min-height:min(92vh,860px);overflow:hidden;isolation:isolate}
+.hero canvas{position:absolute;inset:0;width:100%;height:100%;z-index:-1}
+.hero::after{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;background:linear-gradient(90deg,rgba(3,18,26,.72) 0%,rgba(3,18,26,.35) 45%,rgba(3,18,26,0) 70%)}
+.hero .wrap{position:relative;min-height:min(92vh,860px);display:flex;flex-direction:column;justify-content:space-between;padding-top:28px;padding-bottom:56px}
+.brand{display:flex;align-items:center;gap:10px;font:500 22px/1 var(--serif);letter-spacing:.02em}
+.brand svg{width:28px;height:28px}
+.hero h1{font:300 clamp(48px,8.4vw,112px)/.92 var(--serif);letter-spacing:-.02em;margin:0 0 22px;max-width:9.5em}
+.hero p.lede{max-width:34em;margin:0 0 30px;color:#B9D3D2;font-size:18px}
+.btns{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.btn{appearance:none;border:1px solid transparent;border-radius:999px;padding:12px 22px;font:600 15px/1 var(--sans);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:8px}
+.btn-glow{background:#6CF0DC;color:#03211F}
+.btn-glow:hover{background:#95F6E8}
+.btn-line{border-color:rgba(230,244,242,.35);color:#E6F4F2;background:transparent}
+.btn-line:hover{border-color:#E6F4F2}
+.hero .note{font-size:13px;color:#7FA3A4;margin-top:18px}
+
+section{padding:96px 0}
+h2{font:300 clamp(36px,5vw,60px)/1 var(--serif);letter-spacing:-.01em;margin:0 0 16px}
+.intro{max-width:38em;color:var(--muted);margin:0 0 48px}
+h3{font:500 26px/1.15 var(--serif);margin:0 0 8px}
+
+/* life cycle */
+.cycle{display:grid;grid-template-columns:repeat(4,1fr);gap:0;border-top:1px solid var(--rule)}
+.stage{padding:24px 24px 8px 0;border-right:1px solid var(--rule)}
+.stage + .stage{padding-left:24px}
+.stage:last-child{border-right:0}
+.stage .num{font:italic 300 40px/1 var(--serif);color:var(--lume)}
+.stage canvas{width:100%;height:190px;border-radius:14px;background:var(--tank);margin:14px 0 18px}
+.stage p{margin:0 0 12px;color:var(--muted);font-size:15.5px}
+.tag{display:inline-block;font-size:12.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--rule);color:var(--muted)}
+
+/* lab */
+.lab{background:var(--paper-2)}
+.tanks{display:grid;grid-template-columns:1fr 1.35fr 1fr;gap:18px;align-items:stretch}
+.tank{background:var(--tank);border-radius:22px;color:#DCEFED;display:flex;flex-direction:column;overflow:hidden;position:relative}
+.tank canvas{width:100%;height:300px}
+.tank.child canvas{height:380px}
+.tank .cap{padding:0 20px 20px}
+.tank .who{font-size:12.5px;color:#7FA3A4;margin:0 0 2px}
+.tank .name{font:italic 500 26px/1.1 var(--serif);margin:0 0 8px;min-height:1.1em}
+.tank .meta{font-size:13.5px;color:#9EC0C0;display:flex;flex-wrap:wrap;gap:6px 14px}
+.tank .actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.tank .btn{padding:9px 16px;font-size:13.5px}
+.tank .btn-line{border-color:rgba(220,239,237,.3)}
+.tank.child .empty{position:absolute;inset:0 0 auto 0;height:380px;display:grid;place-items:center;text-align:center;color:#7FA3A4;padding:0 30px;font-size:15px}
+.tank.child .empty[hidden]{display:none}
+.labbar{display:flex;flex-wrap:wrap;align-items:center;gap:16px 28px;margin:26px 0 8px}
+.spawn-btn{font-size:17px;padding:15px 30px;background:var(--ink);color:var(--paper)}
+.spawn-btn:hover{opacity:.9}
+.spawn-btn[disabled]{opacity:.5;cursor:progress}
+.toggle{display:flex;align-items:center;gap:10px;cursor:pointer;font-weight:500}
+.toggle input{appearance:none;width:44px;height:26px;border-radius:999px;background:var(--rule);position:relative;cursor:pointer;margin:0;transition:background .2s}
+.toggle input::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:var(--paper);transition:transform .2s}
+.toggle input:checked{background:var(--bloom)}
+.toggle input:checked::after{transform:translateX(18px)}
+.toggle small{display:block;color:var(--muted);font-weight:400;font-size:13.5px}
+.seedline{font-size:13px;color:var(--muted);word-break:break-all;margin:6px 0 30px;min-height:1.4em}
+
+.genes{overflow-x:auto;border-top:1px solid var(--rule)}
+.genes table{border-collapse:collapse;width:100%;min-width:720px;font-size:14px}
+.genes th,.genes td{padding:9px 10px;border-bottom:1px solid var(--rule);text-align:left;vertical-align:middle}
+.genes thead th{font-weight:500;color:var(--muted);font-size:13px}
+.genes td.trait{font-weight:600;white-space:nowrap}
+.genes td.expr{color:var(--muted);white-space:nowrap}
+.alle{display:inline-flex;gap:4px}
+.chip{width:26px;height:26px;border-radius:7px;display:inline-grid;place-items:center;font:600 12px/1 var(--sans);color:#fff;position:relative}
+.chip.rec{opacity:.55;transform:scale(.86)}
+.chip.t0{background:var(--chip-c)} .chip.t1{background:var(--chip-t)} .chip.t2{background:var(--chip-a)} .chip.t3{background:var(--chip-m)} .chip.t4{background:var(--chip-b)}
+.chip.om{box-shadow:inset 0 -3px 0 #F4C35A} .chip.od{box-shadow:inset 0 -3px 0 #69B7FF}
+.chip.ox{outline:2px solid var(--bloom);outline-offset:1px}
+.chip.ow{outline:2px dashed var(--lume);outline-offset:1px}
+.chip.oj{box-shadow:inset 0 -3px 0 var(--lume)}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px;color:var(--muted);margin:16px 0 0;align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend .chip{width:16px;height:16px;border-radius:4px}
+.uri{font-size:12.5px;color:var(--muted);word-break:break-all;margin-top:18px}
+
+/* plate */
+.plate{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:4px;overflow:hidden}
+.spec{background:var(--tank);color:#DCEFED;border:0;padding:0;text-align:left;cursor:pointer;font:inherit;display:block}
+.spec canvas{width:100%;height:220px}
+.spec .lbl{padding:10px 16px 16px;display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.spec .lbl i{font:italic 500 20px/1.15 var(--serif)}
+.spec .lbl span{font-size:12.5px;color:#7FA3A4;white-space:nowrap}
+.spec:hover .lbl i{color:#6CF0DC}
+.platecap{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;margin:14px 0 0;color:var(--muted);font-size:14px}
+.platecap button{background:none;border:0;color:var(--ink);font:600 14px var(--sans);cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:0}
+
+/* genome strip */
+.strip{display:grid;grid-template-columns:repeat(32,1fr);gap:3px;margin:8px 0 12px}
+.strip div{height:54px;border-radius:5px;display:grid;place-items:end center;padding-bottom:4px;font-size:10.5px;color:rgba(255,255,255,.85)}
+.strip .tr{background:linear-gradient(180deg,var(--chip-t),var(--chip-a))}
+.strip .tr:nth-child(4n+3),.strip .tr:nth-child(4n+4){background:linear-gradient(180deg,var(--chip-a),var(--chip-m))}
+.strip .gen{background:#E0A23A}.strip .vit{background:#D96B4A}.strip .lum{background:#6CC7E8}.strip .flg{background:var(--chip-b)}.strip .salt{background:var(--chip-c)}
+.stripkey{display:grid;grid-template-columns:24fr 1fr 1fr 1fr 1fr 4fr;gap:3px;font-size:12.5px;color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:56px;margin-top:48px}
+.two p{margin:0 0 14px}
+table.plain{border-collapse:collapse;width:100%;font-size:15px}
+table.plain td,table.plain th{padding:9px 0;border-bottom:1px solid var(--rule);text-align:left;vertical-align:top}
+table.plain th{font-weight:500;color:var(--muted);font-size:13px}
+table.plain td:last-child{text-align:right}
+
+/* flow */
+.flow{counter-reset:s;display:grid;grid-template-columns:repeat(4,1fr);gap:18px}
+.flow li{list-style:none;background:var(--paper-2);border-radius:18px;padding:22px 22px 24px;position:relative}
+.flow li::before{counter-increment:s;content:counter(s);font:italic 300 40px/1 var(--serif);color:var(--lume);display:block;margin-bottom:10px}
+.flow li p{margin:0;color:var(--muted);font-size:15px}
+.flow code,.code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.86em}
+.flow{padding:0;margin:0}
+.verify{margin-top:36px;display:grid;grid-template-columns:1fr 1.2fr;gap:40px;align-items:start}
+pre{background:var(--tank);color:#BFE3DF;border-radius:14px;padding:18px 20px;overflow-x:auto;font-size:13.5px;line-height:1.55;margin:0}
+
+.lessons{display:grid;grid-template-columns:1fr 1fr;gap:56px}
+.lessons dl{margin:0}
+.lessons dt{font-weight:600;margin-top:22px}
+.lessons dd{margin:4px 0 0;color:var(--muted)}
+footer{border-top:1px solid var(--rule);padding:40px 0 56px;color:var(--muted);font-size:14px}
+footer .wrap{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
+
+/* your reef */
+.play{background:var(--paper)}
+.playhead{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;flex-wrap:wrap}
+.playhead .intro{margin-bottom:28px}
+.acct{display:flex;align-items:center;gap:16px}
+.who-acct{font-weight:600;font-variant-numeric:tabular-nums}
+.linkbtn{background:none;border:0;color:var(--ink);font:600 14px var(--sans);cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:0}
+.linkbtn[disabled]{opacity:.5;cursor:progress}
+.btn-outline{background:transparent;border-color:var(--ink);color:var(--ink)}
+.btn-outline:hover{background:var(--paper-2)}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.reefstats{display:grid;grid-template-columns:repeat(5,1fr);margin:0 0 20px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.reefstats div{padding:14px 16px 14px 0}
+.reefstats div + div{padding-left:16px;border-left:1px solid var(--rule)}
+.reefstats dt{font-size:13px;color:var(--muted)}
+.reefstats dd{margin:2px 0 0;font:500 22px/1.2 var(--serif)}
+.notice{background:var(--paper-2);border-left:3px solid var(--bloom);padding:12px 16px;border-radius:0 10px 10px 0;margin:0 0 20px}
+.playbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px 18px;margin:0 0 18px}
+.selhint{color:var(--muted);font-size:14.5px}
+.activity{list-style:none;padding:0;margin:0 0 22px;display:grid;gap:8px}
+.activity li{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:15px}
+.activity a{font-size:13.5px;color:var(--muted)}
+.dot{width:10px;height:10px;border-radius:50%;flex:none}
+.dot.wait{background:#E0A23A;animation:pulse 1.4s ease-in-out infinite}.dot.done{background:var(--lume)}.dot.fail{background:var(--bloom)}
+@keyframes pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion: reduce){.dot.wait{animation:none}}
+.mine{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+.empty-reef{color:var(--muted);grid-column:1 / -1;margin:8px 0}
+.jelly{background:var(--tank);color:#DCEFED;border:2px solid transparent;border-radius:18px;padding:0;overflow:hidden;text-align:left;font:inherit;cursor:pointer}
+.jelly canvas{width:100%;height:190px}
+.jelly .lbl{display:grid;gap:2px;padding:8px 14px 14px}
+.jelly .lbl i{font:italic 500 19px/1.15 var(--serif)}
+.jelly .lbl span{font-size:12.5px;color:#8FB2B3}
+.jelly .lbl .st{color:#DCEFED;font-size:13px}
+.jelly[disabled]{cursor:default}
+.jelly.ready .st{color:#6CF0DC}
+.jelly[aria-pressed="true"]{border-color:#6CF0DC;box-shadow:0 0 0 4px rgba(108,240,220,.18)}
+.keeper{margin-top:40px;border-top:1px solid var(--rule);padding-top:18px}
+.keeper summary{cursor:pointer;font-weight:600}
+.keeper form p{color:var(--muted);font-size:14.5px}
+.kgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px;margin:12px 0 18px}
+.kgrid label{display:grid;gap:6px;font-size:13.5px;color:var(--muted)}
+.kgrid input{font:inherit;color:var(--ink);background:var(--paper-2);border:1px solid var(--rule);border-radius:10px;padding:9px 12px}
+.sheet{position:fixed;inset:0;background:rgba(2,14,20,.62);display:grid;place-items:center;z-index:50;padding:20px}
+.sheet[hidden]{display:none}
+.sheet-card{background:var(--paper);color:var(--ink);border-radius:22px;padding:26px;max-width:380px;width:100%;text-align:center}
+.sheet-card p{color:var(--muted);font-size:15px}
+.sheet-card img{border-radius:12px;background:#fff;padding:8px;margin:4px auto 16px;display:block}
+.sheet-card img[hidden]{display:none}
+.sheet-actions{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.sheet-actions a[hidden]{display:none}
+
+@media (max-width:980px){
+  .reefstats{grid-template-columns:repeat(3,1fr)}
+  .reefstats div:nth-child(4){border-left:0;padding-left:0}
+  .tanks{grid-template-columns:1fr 1fr}
+  .tank.child{grid-column:1 / -1;order:3}
+  .cycle{grid-template-columns:1fr 1fr}
+  .stage:nth-child(2){border-right:0}
+  .stage:nth-child(3){padding-left:0}
+  .stage:nth-child(n+3){border-top:1px solid var(--rule)}
+  .flow{grid-template-columns:1fr 1fr}
+  .verify,.two,.lessons{grid-template-columns:1fr;gap:32px}
+}
+@media (max-width:620px){
+  .reefstats{grid-template-columns:1fr 1fr}
+  .reefstats div:nth-child(n){border-left:0;padding-left:0}
+  .reefstats div:nth-child(2n){border-left:1px solid var(--rule);padding-left:16px}
+  .mine{grid-template-columns:1fr 1fr}
+  .jelly canvas{height:150px}
+  body{font-size:16px}
+  section{padding:68px 0}
+  .tanks{grid-template-columns:1fr}
+  .tank.child{grid-column:auto;order:0}
+  .cycle{grid-template-columns:1fr}
+  .stage,.stage + .stage{padding-left:0;border-right:0}
+  .stage + .stage{border-top:1px solid var(--rule)}
+  .plate{grid-template-columns:1fr 1fr}
+  .spec canvas{height:170px}
+  .flow{grid-template-columns:1fr}
+  .strip div{height:40px;font-size:0}
+}
+</style>
+</head>
+<body>
+
+<header class="hero" id="top">
+  <canvas id="heroTank" aria-hidden="true"></canvas>
+  <div class="wrap">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 16C4 8 10 3 16 3s12 5 12 13c-2 1.6-4 1.6-6 0-2 1.6-4 1.6-6 0-2 1.6-4 1.6-6 0-2 1.6-4 1.6-6 0z" fill="#6CF0DC" opacity=".9"/><path d="M9 18c0 5-2 7-2 11M14 18c0 5 1 7 0 11M18 18c0 5-1 7 0 11M23 18c0 5 2 7 2 11" stroke="#6CF0DC" stroke-width="1.4" fill="none" stroke-linecap="round" opacity=".7"/></svg>
+      Xellies
+    </div>
+    <div>
+      <h1>Jellyfish that breed on Xahau.</h1>
+      <p class="lede">Every Xellie is a 32-byte genome minted as a URIToken by a hook. Hatch a polyp, raise it into a medusa, spawn it with another. The ledger rolls each offspring one ledger after you ask, so nobody can pick the outcome, including us.</p>
+      <div class="btns">
+        <a class="btn btn-glow" href="#play">Open your reef</a>
+        <a class="btn btn-line" href="#lab">Try the spawning lab</a>
+      </div>
+      <p class="note" id="netNote">Sign in with Xaman to hatch and spawn on Xahau.</p>
+    </div>
+  </div>
+</header>
+
+<main>
+<section class="play" id="play">
+  <div class="wrap">
+    <div class="playhead">
+      <div>
+        <h2>Your reef</h2>
+        <p class="intro">Sign in with Xaman to hatch polyps and spawn your medusae. Each action is a transaction you approve in Xaman, sent to the Reef at <span class="code">rXELLiESgJYepe35dbkpPByi3uas6jLAW</span>.</p>
+      </div>
+      <div class="acct" id="acct"><button class="btn spawn-btn" id="connectBtn" type="button">Sign in with Xaman</button></div>
+    </div>
+    <dl class="reefstats" id="reefStats"></dl>
+    <p class="notice" id="playNotice" role="status" hidden></p>
+    <div class="playbar" id="playBar" hidden>
+      <button class="btn spawn-btn" id="hatchBtn" type="button">Hatch a polyp</button>
+      <button class="btn btn-outline" id="spawnMineBtn" type="button" disabled>Spawn selected</button>
+      <span class="selhint" id="selHint">Select two ready medusae to spawn them.</span>
+      <button class="linkbtn" id="refreshBtn" type="button">Refresh</button>
+    </div>
+    <ul class="activity" id="activity" aria-live="polite"></ul>
+    <div class="mine" id="mine"></div>
+    <details class="keeper" id="keeper" hidden>
+      <summary>Keeper settings</summary>
+      <form id="keeperForm">
+        <p>Leave a field empty to keep its current value. Changes are one Invoke to the Reef, signed in Xaman.</p>
+        <div class="kgrid">
+          <label>Hatch price (XAH)<input name="price" type="number" min="0" step="0.000001" inputmode="decimal"></label>
+          <label>Spawn fee (XAH)<input name="spawn" type="number" min="0" step="0.000001" inputmode="decimal"></label>
+          <label>Genesis polyps left<input name="genesis" type="number" min="0" step="1" inputmode="numeric"></label>
+          <label>Maturity (ledgers)<input name="mature" type="number" min="1" step="1" inputmode="numeric"></label>
+          <label>Bloom for (hours, 0 ends it)<input name="bloom" type="number" min="0" step="0.5" inputmode="decimal"></label>
+        </div>
+        <button class="btn spawn-btn" type="submit">Sign settings in Xaman</button>
+      </form>
+    </details>
+  </div>
+</section>
+
+<section id="cycle">
+  <div class="wrap">
+    <h2>A life in four stages</h2>
+    <p class="intro">The rules come from real jellyfish biology, including the one species that can age backwards.</p>
+    <div class="cycle">
+      <div class="stage">
+        <div class="num">i</div><h3>Polyp</h3>
+        <canvas data-stage="polyp" aria-label="A polyp anchored to the reef"></canvas>
+        <p>Every Xellie begins anchored to the reef. A polyp can't spawn. It matures after 4,096 ledgers, roughly four hours.</p>
+      </div>
+      <div class="stage">
+        <div class="num">ii</div><h3>Medusa</h3>
+        <canvas data-stage="medusa" aria-label="A free-swimming medusa"></canvas>
+        <p>A free-swimming adult that can spawn with another medusa you own. Each spawn is followed by a longer rest: 1,800 ledgers after the first, doubling each time.</p>
+      </div>
+      <div class="stage">
+        <div class="num">iii</div><h3>Spent</h3>
+        <canvas data-stage="spent" aria-label="A faded, spent medusa"></canvas>
+        <p>Vitality is written in the genome: three to seven spawns. When it runs out the medusa stops spawning, but it stays yours and still counts toward collections.</p>
+      </div>
+      <div class="stage">
+        <div class="num">iv</div><h3>Rebirth</h3>
+        <canvas data-stage="rebirth" aria-label="An immortal medusa reverting to a polyp"></canvas>
+        <p>Immortal Xellies carry the Turritopsis flag, about 1.6% of genesis. A spent immortal can revert to a polyp with the same genes and full vitality.</p>
+        <span class="tag">Planned for v2</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="lab" id="lab">
+  <div class="wrap">
+    <h2>Spawning lab</h2>
+    <p class="intro">This runs the hook's genetics byte for byte, with the seed built the same way: the intent id, the last ledger hash and a ledger nonce (random here), plus a running tide that carries every earlier spawn in this session.</p>
+
+    <div class="tanks">
+      <div class="tank" id="tankA">
+        <canvas aria-label="Parent A"></canvas>
+        <div class="cap">
+          <p class="who">Parent A</p>
+          <p class="name"></p>
+          <div class="meta"></div>
+          <div class="actions"><button class="btn btn-line" data-new="A">New genesis parent</button></div>
+        </div>
+      </div>
+      <div class="tank child" id="tankC">
+        <canvas aria-label="Offspring"></canvas>
+        <div class="empty" id="emptyC">Press Spawn. The offspring appears here with every allele traced to its parent.</div>
+        <div class="cap">
+          <p class="who">Offspring</p>
+          <p class="name"></p>
+          <div class="meta"></div>
+          <div class="actions" id="childActions" hidden>
+            <button class="btn btn-line" data-keep="A">Keep as parent A</button>
+            <button class="btn btn-line" data-keep="B">Keep as parent B</button>
+          </div>
+        </div>
+      </div>
+      <div class="tank" id="tankB">
+        <canvas aria-label="Parent B"></canvas>
+        <div class="cap">
+          <p class="who">Parent B</p>
+          <p class="name"></p>
+          <div class="meta"></div>
+          <div class="actions"><button class="btn btn-line" data-new="B">New genesis parent</button></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="labbar">
+      <button class="btn spawn-btn" id="spawnBtn">Spawn</button>
+      <label class="toggle"><input type="checkbox" id="bloomT"><span>Bloom tide<small>Mutations twice as likely; two mythic alleles can become the bloom allele.</small></span></label>
+    </div>
+    <p class="seedline" id="seedline"></p>
+
+    <div class="genes">
+      <table>
+        <thead><tr><th>Trait</th><th>Parent A</th><th>Offspring</th><th>Parent B</th><th>Offspring shows</th></tr></thead>
+        <tbody id="geneRows"></tbody>
+      </table>
+    </div>
+    <div class="legend">
+      <span><i class="chip t0"></i>Common</span><span><i class="chip t1"></i>Tidal</span><span><i class="chip t2"></i>Abyssal</span><span><i class="chip t3"></i>Mythic</span><span><i class="chip t4"></i>Bloom</span>
+      <span>First chip is expressed; the three smaller ones are dormant.</span>
+      <span><i class="chip t0 om"></i>from A</span><span><i class="chip t0 od"></i>from B</span><span><i class="chip t0 ox"></i>resonance</span><span><i class="chip t0 ow"></i>wild</span><span><i class="chip t0 oj"></i>drift</span>
+    </div>
+    <p class="uri" id="uriline"></p>
+  </div>
+</section>
+
+<section id="plate">
+  <div class="wrap">
+    <h2>Plate I. Genesis specimens</h2>
+    <p class="intro">Nine freshly rolled genesis polyps, drawn as adults. Names are derived from the genome: bell shape gives the genus, glow colour the species. Pick one to send it to the lab as parent A.</p>
+    <div class="plate" id="plateGrid"></div>
+    <div class="platecap"><span>Rendered live from each genome. Nothing here is a stored image.</span><button id="replate">Roll a new plate</button></div>
+  </div>
+</section>
+
+<section id="genome" style="background:var(--paper-2)">
+  <div class="wrap">
+    <h2>What's in 32 bytes</h2>
+    <p class="intro">The whole creature lives in its URIToken's URI as <span class="code">xellies:1:</span> plus 64 hex characters. Any wallet or explorer can decode it without asking our servers.</p>
+    <div class="strip" id="strip" aria-hidden="true"></div>
+    <div class="stripkey"><span>12 traits, 4 alleles each (bytes 0–23)</span><span>gen</span><span>vit</span><span>lum</span><span>flag</span><span>salt</span></div>
+
+    <div class="two">
+      <div>
+        <h3>Twelve traits, four alleles</h3>
+        <p>Bell shape, bell hue, glow hue, glow pattern, tentacle count, tentacle length, tentacle style, oral arms, pulse rhythm, clarity, rim and aura. Each has one expressed allele and three dormant ones, like CryptoKitties. All four are public in the token; they just don't show in the artwork.</p>
+        <p>When two medusae spawn, each parent's dormant alleles can surface a slot (an even chance at each step), then each slot takes the allele from one parent or the other. Two jellies that look ordinary can carry something rare.</p>
+        <p>Lumen, the glow intensity, blends instead: the offspring gets the parents' average, give or take 40.</p>
+      </div>
+      <div>
+        <h3>Resonance mutations</h3>
+        <p>When the two alleles meeting in a slot are partners, there's a one-in-four chance (one-in-two during a Bloom) they fuse into the next tier.</p>
+        <table class="plain">
+          <thead><tr><th>Partners meeting</th><th>Can become</th></tr></thead>
+          <tbody>
+            <tr><td>0+1, 2+3, 4+5, 6+7 (common)</td><td>8, 9, 10, 11 (tidal)</td></tr>
+            <tr><td>8+9, 10+11 (tidal)</td><td>12, 13 (abyssal)</td></tr>
+            <tr><td>12+13 (abyssal)</td><td>14 (mythic)</td></tr>
+            <tr><td>14+14, only during a Bloom</td><td>15 (bloom)</td></tr>
+          </tbody>
+        </table>
+        <h3 style="margin-top:36px">Drift</h3>
+        <p>After inheritance, every one of the 48 allele slots gets its own roll. About one in 43 becomes a wild allele, freshly rolled as if at genesis. Another one in 43 drifts to a neighbouring allele of the same tier.</p>
+      </div>
+    </div>
+    <h3 style="margin-top:56px">How hard is it to guess?</h3>
+    <p style="max-width:38em;color:var(--muted)">Every rule is public and every allele is on the ledger, so nothing here is secret. The outcome is still hard to call. Each spawn makes over 200 independent random decisions from a seed that doesn't exist until the ledger closes. Even knowing both parents' full genomes, the best possible guess at any single trait of the offspring is right about 33% of the time, and the whole look almost never.</p>
+  </div>
+</section>
+
+<section id="hooks">
+  <div class="wrap">
+    <h2>How it runs on Xahau</h2>
+    <p class="intro">Two hooks on one Reef account share a hook namespace. No servers decide anything: the website only reads the ledger and builds transactions for your wallet to sign.</p>
+    <ol class="flow">
+      <li><strong>You pay the Reef</strong><p>A Payment with hook parameter <code>OP=H</code> hatches a genesis polyp. <code>OP=S</code> with token ids <code>A</code> and <code>B</code> spawns two of your medusae.</p></li>
+      <li><strong>reef_pay records the intent</strong><p>It checks price, ownership, maturity, rest and vitality, writes an intent keyed by your transaction id, then emits an Invoke to itself.</p></li>
+      <li><strong>Next ledger, reef_roll rolls</strong><p>The seed hashes your intent id, the last ledger hash, a ledger nonce and the Reef's tide, a running hash of every roll before yours. None of it can be known when you sign.</p></li>
+      <li><strong>A Remit mints your jelly</strong><p>The hook emits a Remit with <code>MintURIToken</code> to your account. The callback marks the intent granted, or failed so the operator can refund it.</p></li>
+    </ol>
+    <div class="verify">
+      <div>
+        <h3>Verify, don't trust</h3>
+        <p style="color:var(--muted);margin:0 0 12px">Each hook's bytecode is referenced on ledger by its HookHash, the SHA-256 of the wasm. Build the source in a pinned container, hash it, compare. If the digests match, the published code is the running code.</p>
+        <p style="color:var(--muted);margin:0">Both hooks pass Xahau's guard checker: about 47,000 and 53,000 worst-case instructions of the 65,535 allowed. That ceiling is why the design uses two hooks rather than one.</p>
+      </div>
+<pre>$ HOOKAPI=./hookapi ./build.sh
+genetics: C vs JS parity
+2000 genomes compared, 0 mismatches
+Hook validation successful!   <span style="color:#6B8F90"># reef_pay</span>
+Hook validation successful!   <span style="color:#6B8F90"># reef_roll</span>
+&lt;sha256&gt;  build/reef_pay.wasm
+&lt;sha256&gt;  build/reef_roll.wasm
+
+<span style="color:#6B8F90"># compare with the HookHash entries on the Reef account</span></pre>
+    </div>
+  </div>
+</section>
+
+<section id="economy" style="background:var(--paper-2)">
+  <div class="wrap">
+    <div class="two" style="margin-top:0">
+      <div>
+        <h2>Proposed numbers</h2>
+        <p style="color:var(--muted)">All of these are keeper-settable state, not constants, except the rest schedule and vitality range, which are in the hook.</p>
+        <table class="plain">
+          <tbody>
+            <tr><td>Genesis polyps, first season</td><td>4,096</td></tr>
+            <tr><td>Hatch price</td><td>20 XAH</td></tr>
+            <tr><td>Spawn fee</td><td>5 XAH</td></tr>
+            <tr><td>Maturity</td><td>4,096 ledgers</td></tr>
+            <tr><td>Rest after spawn <i>n</i></td><td>900 × 2<sup>n</sup> ledgers</td></tr>
+            <tr><td>Vitality</td><td>3–7 spawns, genetic</td></tr>
+            <tr><td>Blooms</td><td>Announced windows</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div>
+        <h2>Rarity that holds</h2>
+        <p style="color:var(--muted)">We simulated 3,000 jellies mating at random for eight generations with one Bloom. Tidal alleles rose from 15% to 26% of expressed traits, abyssal from 4.7% to 7.0%, mythic held near 2%, and bloom alleles appeared at about one per 10,000 traits. The extra randomness makes offspring harder to call without cheapening rarity.</p>
+        <p style="color:var(--muted)">Immortality fades fast under random mating, to under half a percent in one generation and under 0.1% by the fourth. Keeping it alive takes pairing immortals deliberately, which is exactly the kind of breeding project that gives a collection a story.</p>
+        <p style="color:var(--muted)">Supply stays bounded because every medusa has finite vitality and each rest doubles. A genesis jelly with vitality 7 needs over 200,000 ledgers of rest to use it all.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="lessons">
+  <div class="wrap">
+    <h2>What we borrowed</h2>
+    <p class="intro">Two predecessors shaped the rules: the game that made breeding collectibles famous, and the card game proving Hooks can run this kind of thing cleanly.</p>
+    <div class="lessons">
+      <dl>
+        <h3>From CryptoKitties</h3>
+        <dt>Dormant alleles</dt><dd>Kept, and published openly. Four alleles per trait plus per-slot drift make breeding a puzzle with real surprises.</dd>
+        <dt>Cooldowns that grow</dt><dd>Kept, and paired with a hard vitality cap, because cooldowns alone slowed supply without ever stopping it.</dd>
+        <dt>Gas-heavy breeding</dt><dd>Avoided. Hooks run inside the ledger at Xahau's fees, so spawning stays cheap as the game grows.</dd>
+        <dt>Siring market</dt><dd>Planned for v2 as on-ledger sire offers, paid out by an emitted Payment.</dd>
+      </dl>
+      <dl>
+        <h3>From XahauCards</h3>
+        <dt>Pay, then roll a ledger later</dt><dd>Adopted. Randomness from a hash that didn't exist at signing time.</dd>
+        <dt>Record before you emit</dt><dd>Adopted. Every purchase is written down first; a failed mint is marked on ledger, visible and refundable.</dd>
+        <dt>Reproducible builds and published hashes</dt><dd>Adopted, with a build script that also proves the website and the hook share one genetics engine.</dd>
+        <dt>Self-describing tokens</dt><dd>Taken further: the genome is the URI, so a Xellie can be rendered from the ledger alone.</dd>
+      </dl>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Xellies runs on Xahau. Not affiliated with XRPL Labs, Xaman or XahauCards.</span>
+    <a href="#top">Back to the surface</a>
+  </div>
+</footer>
+
+<div class="sheet" id="sheet" hidden role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <div class="sheet-card">
+    <h3 id="sheetTitle">Sign in Xaman</h3>
+    <p id="sheetStatus" role="status"></p>
+    <img id="sheetQr" alt="QR code for this sign request; scan it with Xaman" width="200" height="200" hidden>
+    <div class="sheet-actions">
+      <a class="btn spawn-btn" id="sheetOpen" hidden>Open in Xaman</a>
+      <button class="btn btn-outline" id="sheetCancel" type="button">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://xumm.app/assets/cdn/xumm.min.js"></script>
+<script>
+(() => {
+"use strict";
+const REDUCE = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/* ---------- genetics: byte-for-byte twin of src/genetics.h ---------- */
+const XG={GEN:24,VIT:25,LUMEN:26,FLAGS:27,SALT:28,F_IMM:1,F_BLOOM:2,F_GEN:4};
+const get=(g,t,j)=>{const b=g[2*t+(j>>1)];return (j&1)?(b&15):(b>>4)};
+const set=(g,t,j,v)=>{const i=2*t+(j>>1);g[i]=(j&1)?((g[i]&0xf0)|(v&15)):((g[i]&0x0f)|((v&15)<<4))};
+const gAllele=v=>v<200?v%8:v<240?8+(v%4):v<252?12+(v%2):14;
+function mutate(a,b,bloom){const lo=Math.min(a,b),hi=Math.max(a,b);
+  if(bloom&&lo===14&&hi===14)return 15; if(hi!==lo+1||(lo&1))return -1;
+  if(lo<8)return 8+(lo>>1); if(lo===8)return 12; if(lo===10)return 13; if(lo===12)return 14; return -1;}
+function genesis(pool){const o=new Uint8Array(32);
+  for(let t=0;t<12;t++)for(let j=0;j<4;j++)set(o,t,j,gAllele(pool[4*t+j]));
+  o[XG.GEN]=0;o[XG.VIT]=3+(pool[48]%5);o[XG.LUMEN]=pool[49];
+  o[XG.FLAGS]=XG.F_GEN|(pool[50]<4?XG.F_IMM:0);for(let k=0;k<4;k++)o[XG.SALT+k]=pool[52+k];return o;}
+function spawn(mom,dad,pool,bloom){const o=new Uint8Array(32),origin=[];
+  for(let t=0;t<12;t++){const ms=[0,1,2,3].map(j=>get(mom,t,j)),ds=[0,1,2,3].map(j=>get(dad,t,j));
+    const b0=pool[3*t],b1=pool[3*t+1],b2=pool[3*t+2];const sw=(a,i)=>{const x=a[i];a[i]=a[i-1];a[i-1]=x};
+    if(((b0>>0)&3)<2)sw(ms,3); if(((b0>>2)&3)<2)sw(ms,2); if(((b0>>4)&3)<2)sw(ms,1);
+    if(((b0>>6)&3)<2)sw(ds,3); if(((b1>>0)&3)<2)sw(ds,2); if(((b1>>2)&3)<2)sw(ds,1);
+    const lim=bloom?2:1,row=[];
+    for(let j=0;j<4;j++){const a=ms[j],b=ds[j],m=mutate(a,b,bloom),r=(b2>>(2*j))&3;let v,w;
+      if(m>=0&&r<lim){v=m;w="x"}else if((b1>>(4+j))&1){v=b;w="d"}else{v=a;w="m"} set(o,t,j,v);row.push(w);}
+    origin.push(row);}
+  for(let k=0;k<48;k++){const d=pool[48+k];if(d>=12)continue;const t=k>>2,j=k&3,old=get(o,t,j);let v=old,tag="j";
+    if(d<6){v=gAllele(pool[96+k]);tag="w";}else if(v<8)v=(v+1+(d&1)*6)&7;else if(v<12)v=8+((v-8+1+(d&1)*2)&3);else if(v<14)v=v^1;
+    set(o,t,j,v);if(tag==="w"||v!==old)origin[t][j]=tag;}
+  const g=Math.max(mom[XG.GEN],dad[XG.GEN]);o[XG.GEN]=g===255?255:g+1;o[XG.VIT]=3+(pool[36]%5);
+  const lum=Math.trunc((mom[XG.LUMEN]+dad[XG.LUMEN])/2)+(pool[37]%81)-40;o[XG.LUMEN]=Math.max(0,Math.min(255,lum));
+  const fm=mom[XG.FLAGS],fd=dad[XG.FLAGS];let imm=0;
+  if(fm&fd&XG.F_IMM)imm=1;else if(((fm|fd)&XG.F_IMM)&&pool[38]<32)imm=1;else if(pool[38]===255&&pool[39]<16)imm=1;
+  o[XG.FLAGS]=(imm?XG.F_IMM:0)|(bloom?XG.F_BLOOM:0);for(let k=0;k<4;k++)o[XG.SALT+k]=pool[40+k];
+  return {genome:o,origin};}
+
+/* seed derivation exactly as reef_roll:
+   seed = sha512h(intent || last ledger hash || ledger nonce || tide); tide' = sha512h(seed || tide);
+   pool = sha512h(seed||0) || ... || sha512h(seed||4). Here the tide runs for this browser session. */
+const rnd=n=>crypto.getRandomValues(new Uint8Array(n));
+let tide=new Uint8Array(32);
+async function sha512h(bytes){try{const d=await crypto.subtle.digest("SHA-512",bytes);return new Uint8Array(d).slice(0,32);}catch(e){return null;}}
+async function derivePool(){
+  const intent=rnd(32),last=rnd(32),nonce=rnd(32);
+  const seedIn=new Uint8Array(128);seedIn.set(intent);seedIn.set(last,32);seedIn.set(nonce,64);seedIn.set(tide,96);
+  const seed=await sha512h(seedIn);
+  if(!seed){const p=rnd(160);return {pool:p,intent,last,tide};}
+  const st=new Uint8Array(64);st.set(seed);st.set(tide,32);tide=await sha512h(st);
+  const sb=new Uint8Array(33);sb.set(seed);const pool=new Uint8Array(160);
+  for(let i=0;i<5;i++){sb[32]=i;pool.set(await sha512h(sb),32*i);}
+  return {pool,intent,last,tide};}
+const hex=b=>Array.from(b,x=>x.toString(16).padStart(2,"0")).join("");
+
+/* ---------- phenotype ---------- */
+const TIER=v=>v<8?0:v<12?1:v<14?2:v===14?3:4;
+const TIERNAME=["Common","Tidal","Abyssal","Mythic","Bloom"];
+const TRAITS=["Bell","Bell hue","Glow hue","Pattern","Tentacles","Reach","Tentacle style","Oral arms","Pulse","Clarity","Rim","Aura"];
+const GENUS=["Aurelia","Chrysaora","Pelagia","Cyanea","Aequorea","Mastigias","Cassiopea","Phyllorhiza","Carybdea","Olindias","Periphylla","Atolla","Deepstaria","Stygiomedusa","Benthocodon","Florida"];
+const EPI=["lucens","caerulea","rosea","aurea","viridis","violacea","argentea","ignea","glacialis","noctiluca","purpurea","stellata","umbrosa","prismatica","coronata","florens"];
+const BELLN=["dome","parasol","bell","lion's mane","crystal","spotted","saucer","lagoon","box","flower-hat","crown","abyssal","veil","phantom","deep","bloom"];
+const PAT=["plain","rings","spots","veins","radial canals","stripes","lattice","freckles","clover","star","spiral","constellation","aurora bands","eye-spots","sigil","fractal"];
+const TST=["fine","curly","beaded","ribbon","frilled","whip","pearled","silk","corkscrew","lace","comet","twin","lantern","chain","auroral","stardust"];
+const ORAL=["none","short","ribbon","lace","cauliflower","frond","curtain","tassel","crown","veil","candelabra","spiral","cathedral","drift-net","nebula","garden"];
+const RIM=["plain","rhopalia","fringe","scallops","beads","spines","lace","pearls","gilded","twin fringe","comet dots","halo dots","abyss teeth","ember lace","sigil ring","petals"];
+const AURA=["none","faint","faint","faint","soft","soft","soft","soft","halo","sparkle","ripple","shimmer","abyss core","prism","starlight","corona"];
+const HUE=[195,170,210,265,300,330,350,20,40,55,90,140,180,230,285,0];
+const GLOW=[175,195,320,45,120,275,210,15,185,150,290,55,240,0,50,330];
+
+function pheno(g){
+  const d=t=>get(g,t,0);
+  const b=d(0);
+  const shapes=[[1,.62,.10,0,.0],[1.1,.48,.18,10,.0],[.85,.8,.05,8,.25],[1.2,.55,.12,16,.05],[1.05,.42,.02,0,.0],[.9,.7,.08,0,.1],[1.05,.3,.25,12,-.1],[.95,.58,.14,6,.05],[.7,.85,-.05,0,.0],[.95,.75,.0,0,.2],[.72,1.05,.0,12,.55],[1,.5,.22,20,.0],[1.3,.6,.3,24,.0],[1.25,.7,.18,0,.0],[.8,.9,.04,10,.35],[1,.66,.2,14,.12]][b];
+  const lum=g[XG.LUMEN]/255;
+  return {
+    w:shapes[0],h:shapes[1],flare:shapes[2],scallops:shapes[3],peak:shapes[4],
+    hue:HUE[d(1)]+get(g,1,1)*3,glow:GLOW[d(2)]+get(g,2,1)*2,pattern:d(3),
+    tcount:[4,6,8,8,10,12,14,16,18,20,24,28,32,36,40,48][d(4)],
+    tlen:.9+d(5)*.16,tstyle:d(6),oral:d(7),pulse:.55+d(8)*.09,clarity:.18+(15-d(9))*.028,
+    rim:d(10),aura:d(11),lum:.35+lum*.65,imm:!!(g[XG.FLAGS]&XG.F_IMM),bloom:!!(g[XG.FLAGS]&XG.F_BLOOM),
+    tier:Math.max(...Array.from({length:12},(_,t)=>TIER(d(t))))
+  };
+}
+function nameOf(g){const p=pheno(g);return (p.imm?"Turritopsis":GENUS[get(g,0,0)])+" "+EPI[get(g,2,0)];}
+function describe(t,v){switch(t){case 0:return BELLN[v]+" bell";case 3:return PAT[v];case 4:return pheno0(4,v)+" tentacles";case 6:return TST[v];case 7:return v?ORAL[v]+" arms":"no arms";case 10:return RIM[v];case 11:return AURA[v];case 8:return ["languid","slow","slow","easy","easy","steady","steady","steady","brisk","brisk","quick","quick","racing","racing","frantic","heartbeat"][v];case 9:return v<5?"milky":v<10?"clear":"glass";case 5:return v<5?"short":v<10?"long":"trailing";case 1:case 2:return hueName((t===1?HUE:GLOW)[v]);}return "";}
+function pheno0(t,v){return [4,6,8,8,10,12,14,16,18,20,24,28,32,36,40,48][v];}
+function hueName(h){h=((h%360)+360)%360;return h<15?"red":h<40?"coral":h<60?"amber":h<80?"gold":h<150?"green":h<185?"teal":h<205?"cyan":h<250?"blue":h<285?"indigo":h<315?"violet":h<345?"magenta":"rose";}
+
+/* ---------- renderer ---------- */
+function hsl(h,s,l,a){return `hsla(${h},${s}%,${l}%,${a})`;}
+function bellPath(ctx,p,W,H){
+  const w=W,h=H,f=p.flare*w,pk=p.peak;
+  ctx.beginPath();ctx.moveTo(-w-f,0);
+  ctx.bezierCurveTo(-w-f*.3,-h*.55,-w*(.55-pk*.4),-h*(1.02+pk*.1),0,-h);
+  ctx.bezierCurveTo(w*(.55-pk*.4),-h*(1.02+pk*.1),w+f*.3,-h*.55,w+f,0);
+  if(p.scallops>0){const n=p.scallops,span=2*(w+f);for(let i=n;i>0;i--){const x1=-w-f+span*(i-1)/n,xm=(x1+(-w-f+span*i/n))/2;ctx.quadraticCurveTo(xm,h*.07,x1,0);}}
+  else ctx.quadraticCurveTo(0,-h*.22,-w-f,0);
+  ctx.closePath();
+}
+function drawJelly(ctx,g,p,t,x,y,S,opt={}){
+  const alpha=opt.alpha??1,ph=t*p.pulse*2.2+(opt.phase||0);
+  const c=Math.max(0,Math.sin(ph)),ease=c*c;
+  const W=S*.5*p.w*(1-.13*ease),H=S*.5*p.h*(1+.08*ease);
+  ctx.save();ctx.translate(x,y);ctx.globalAlpha=alpha;
+  const gcol=p.glow,lum=p.lum*(opt.dim??1);
+  // aura / glow sprite
+  const r=S*(.75+.25*lum);const rg=ctx.createRadialGradient(0,-H*.4,0,0,-H*.4,r);
+  rg.addColorStop(0,hsl(gcol,90,65,.20*lum));rg.addColorStop(1,hsl(gcol,90,60,0));
+  ctx.globalCompositeOperation="lighter";ctx.fillStyle=rg;ctx.beginPath();ctx.arc(0,-H*.4,r,0,6.283);ctx.fill();
+  if(p.aura>=8)drawAura(ctx,p,t,W,H,S,lum);
+  // tentacles
+  const n=Math.min(p.tcount,48),L=S*.62*p.tlen,span=W*.92;
+  for(let i=0;i<n;i++){
+    const u=n===1?0:i/(n-1)*2-1,x0=u*span,len=L*(.72+.28*Math.cos(i*2.39)**2);
+    const segs=18,st=p.tstyle;ctx.beginPath();let px=x0,py=0;ctx.moveTo(px,py);const pts=[];
+    for(let k=1;k<=segs;k++){const q=k/segs;
+      let sway=Math.sin(ph*.9-q*3.2+i*.7)*S*.05*q+Math.sin(t*.6+i)*S*.015*q;
+      if(st===1||st===8)sway+=Math.sin(q*22+t*2+i)*S*.018*q;
+      if(st===9||st===14)sway+=Math.sin(q*9+i)*S*.03*q;
+      px=x0*(1-q*.25)+sway;py=q*len*(1-.12*ease);ctx.lineTo(px,py);pts.push([px,py,q]);}
+    const tw=(st===3||st===4||st===14)?2.2:(st===0||st===7)?.7:1.1;
+    ctx.lineWidth=Math.max(.5,tw*S/220);ctx.strokeStyle=hsl(gcol,80,70,.30*lum+.08);ctx.stroke();
+    if(st===2||st===6||st===12||st===15||st===10){for(let k=2;k<pts.length;k+=st===6?2:3){const [bx,by,q]=pts[k];
+      ctx.fillStyle=hsl(st===15?(gcol+k*20)%360:gcol,90,72,(.55-.4*q)*lum);ctx.beginPath();ctx.arc(bx,by,(st===12?2.6:1.5)*S/220,0,6.283);ctx.fill();}}
+  }
+  // oral arms
+  if(p.oral>0){const arms=p.oral>=8?5:p.oral>=4?4:3;
+    for(let a=0;a<arms;a++){const ox=(a/(arms-1||1)-.5)*W*.45;ctx.beginPath();ctx.moveTo(ox,-H*.05);
+      const len=S*(.22+.03*p.oral);for(let k=1;k<=14;k++){const q=k/14;ctx.lineTo(ox+Math.sin(ph-q*4+a)*S*.035*q*(1+p.oral/10),q*len);}
+      ctx.lineWidth=(3+p.oral*.5)*S/220;ctx.strokeStyle=hsl(p.hue+20,70,72,.22+.2*lum);ctx.lineCap="round";ctx.stroke();}}
+  // bell
+  ctx.globalCompositeOperation="source-over";
+  bellPath(ctx,p,W,H);
+  const bg=ctx.createLinearGradient(0,-H,0,0);
+  bg.addColorStop(0,hsl(p.hue,70,72,.34+p.clarity));bg.addColorStop(.7,hsl(p.hue,70,56,.18+p.clarity*.6));bg.addColorStop(1,hsl(gcol,90,70,.28));
+  ctx.fillStyle=bg;ctx.fill();
+  ctx.save();ctx.clip();ctx.globalCompositeOperation="lighter";drawPattern(ctx,p,t,W,H,S,lum);
+  const ig=ctx.createRadialGradient(0,-H*.55,0,0,-H*.55,W);ig.addColorStop(0,hsl(gcol,95,75,.35*lum));ig.addColorStop(1,hsl(gcol,95,60,0));
+  ctx.fillStyle=ig;ctx.fillRect(-W*2,-H*2,W*4,H*3);ctx.restore();
+  ctx.lineWidth=Math.max(.8,1.4*S/220);ctx.strokeStyle=hsl(p.hue,80,85,.55);bellPath(ctx,p,W,H);ctx.stroke();
+  drawRim(ctx,p,W,H,S,lum);
+  ctx.restore();
+}
+function drawPattern(ctx,p,t,W,H,S,lum){
+  const P=p.pattern,col=hsl(p.glow,95,72,.5*lum+.1),lw=Math.max(.7,1.3*S/220);ctx.strokeStyle=col;ctx.fillStyle=col;ctx.lineWidth=lw;
+  const ring=(r)=>{ctx.beginPath();ctx.ellipse(0,-H*.45,W*r,H*r*.6,0,0,6.283);ctx.stroke();};
+  switch(P){
+    case 1:for(let r=.3;r<1.1;r+=.25)ring(r);break;
+    case 2:case 7:for(let i=0;i<(P===7?40:14);i++){const a=i*2.4,rr=(i%7+1)/8;ctx.beginPath();ctx.arc(Math.cos(a)*W*rr*.85,-H*.45+Math.sin(a)*H*rr*.45,(P===7?1.1:2.6)*S/220,0,6.283);ctx.fill();}break;
+    case 3:case 4:for(let i=0;i<(P===4?16:9);i++){const u=i/((P===4?16:9)-1)*2-1;ctx.beginPath();ctx.moveTo(0,-H*.9);ctx.quadraticCurveTo(u*W*.5,-H*.6,u*W*1.05,0);ctx.stroke();}break;
+    case 5:for(let y=-H;y<0;y+=H/6){ctx.beginPath();ctx.moveTo(-W*1.3,y);ctx.lineTo(W*1.3,y+H*.08);ctx.stroke();}break;
+    case 6:for(let i=-6;i<=6;i++){ctx.beginPath();ctx.moveTo(i*W*.2,-H);ctx.lineTo(i*W*.2+W*.6,0);ctx.stroke();ctx.beginPath();ctx.moveTo(i*W*.2,-H);ctx.lineTo(i*W*.2-W*.6,0);ctx.stroke();}break;
+    case 8:for(let k=0;k<4;k++){const a=k*Math.PI/2+.785;ctx.beginPath();ctx.ellipse(Math.cos(a)*W*.22,-H*.5+Math.sin(a)*H*.14,W*.16,H*.09,a,0,6.283);ctx.lineWidth=lw*2.2;ctx.stroke();}break;
+    case 9:{ctx.beginPath();for(let k=0;k<10;k++){const a=k*Math.PI/5-Math.PI/2,rr=k%2?.25:.6;ctx.lineTo(Math.cos(a)*W*rr,-H*.5+Math.sin(a)*H*rr*.6);}ctx.closePath();ctx.lineWidth=lw*1.8;ctx.stroke();}break;
+    case 10:{ctx.beginPath();for(let k=0;k<120;k++){const a=k*.18+t*.3,rr=k/120;ctx.lineTo(Math.cos(a)*W*rr,-H*.48+Math.sin(a)*H*rr*.55);}ctx.stroke();}break;
+    case 11:for(let i=0;i<18;i++){const a=i*2.4,rr=((i*7)%9+1)/10,tw=.5+.5*Math.sin(t*2+i);ctx.fillStyle=hsl(p.glow,95,85,.8*tw*lum);ctx.beginPath();ctx.arc(Math.cos(a)*W*rr*.85,-H*.45+Math.sin(a)*H*rr*.45,2*S/220,0,6.283);ctx.fill();}break;
+    case 12:for(let i=0;i<4;i++){ctx.strokeStyle=hsl((p.glow+i*40+t*20)%360,95,70,.45*lum);ctx.lineWidth=lw*3;ctx.beginPath();ctx.moveTo(-W*1.2,-H*(.2+i*.18));ctx.bezierCurveTo(-W*.3,-H*(.35+i*.18)+Math.sin(t+i)*H*.08,W*.3,-H*(.05+i*.18),W*1.2,-H*(.25+i*.18));ctx.stroke();}break;
+    case 13:for(let k=0;k<6;k++){const a=k/6*6.283;const ex=Math.cos(a)*W*.55,ey=-H*.45+Math.sin(a)*H*.3;ctx.beginPath();ctx.arc(ex,ey,4*S/220,0,6.283);ctx.stroke();ctx.beginPath();ctx.arc(ex,ey,1.8*S/220,0,6.283);ctx.fill();}break;
+    case 14:{ctx.lineWidth=lw*1.6;ring(.3);ring(.62);for(let k=0;k<8;k++){const a=k*Math.PI/4;ctx.beginPath();ctx.moveTo(Math.cos(a)*W*.3,-H*.45+Math.sin(a)*H*.18);ctx.lineTo(Math.cos(a)*W*.62,-H*.45+Math.sin(a)*H*.37);ctx.stroke();}}break;
+    case 15:{const br=(x,y,a,l,d)=>{if(d>4)return;const x2=x+Math.cos(a)*l,y2=y+Math.sin(a)*l;ctx.strokeStyle=hsl((p.glow+d*35+t*25)%360,95,72,.6*lum);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x2,y2);ctx.stroke();br(x2,y2,a-.5,l*.66,d+1);br(x2,y2,a+.5,l*.66,d+1);};br(0,0,-Math.PI/2,H*.42,0);}break;
+  }
+}
+function drawRim(ctx,p,W,H,S,lum){
+  const R=p.rim,f=p.flare*W;if(R===0)return;const n=R>=8?24:16;
+  for(let i=0;i<=n;i++){const x=-W-f+2*(W+f)*i/n;const col=hsl(R>=12?(p.glow+i*15)%360:p.glow,95,78,.75*lum+.15);
+    ctx.fillStyle=col;ctx.strokeStyle=col;
+    if(R===1||R===4||R===7||R===10||R===11){ctx.beginPath();ctx.arc(x,1,(R===7?2.4:1.6)*S/220,0,6.283);ctx.fill();}
+    else if(R===2||R===9||R===13){ctx.lineWidth=.8;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x+Math.sin(i)*2,S*.04);ctx.stroke();}
+    else if(R===5||R===12){ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,S*.025);ctx.stroke();}
+    else {ctx.beginPath();ctx.arc(x,0,S*.012,0,Math.PI);ctx.lineWidth=1;ctx.stroke();}}
+}
+function drawAura(ctx,p,t,W,H,S,lum){
+  const A=p.aura,cy=-H*.45;
+  if(A===8){ctx.strokeStyle=hsl(p.glow,95,80,.35*lum);ctx.lineWidth=2*S/220;ctx.beginPath();ctx.ellipse(0,-H*1.18,W*.5,H*.12,0,0,6.283);ctx.stroke();}
+  else if(A===9||A===14){const k=A===14?26:14;for(let i=0;i<k;i++){const a=i*2.4+t*.2,rr=S*(.45+.2*((i*37)%10)/10);const tw=.5+.5*Math.sin(t*3+i*1.7);ctx.fillStyle=hsl(A===14?50:p.glow,95,85,.8*tw);ctx.beginPath();ctx.arc(Math.cos(a)*rr,cy+Math.sin(a)*rr*.7,(A===14?1.8:1.3)*S/220,0,6.283);ctx.fill();}}
+  else if(A===10){for(let i=0;i<3;i++){const q=((t*.4+i/3)%1);ctx.strokeStyle=hsl(p.glow,90,75,.35*(1-q)*lum);ctx.lineWidth=1.2;ctx.beginPath();ctx.ellipse(0,cy,W*(1+q*.9),H*(.7+q*.7),0,0,6.283);ctx.stroke();}}
+  else if(A===11){const sg=ctx.createLinearGradient(-W*1.5,0,W*1.5,0);const s=(t*.3)%1;sg.addColorStop(Math.max(0,s-.1),"rgba(255,255,255,0)");sg.addColorStop(s,hsl(p.glow,95,90,.25));sg.addColorStop(Math.min(1,s+.1),"rgba(255,255,255,0)");ctx.fillStyle=sg;ctx.fillRect(-W*1.5,-H*1.4,W*3,H*1.6);}
+  else if(A===12){ctx.globalCompositeOperation="source-over";const dg=ctx.createRadialGradient(0,cy,0,0,cy,W*.6);dg.addColorStop(0,"rgba(0,0,0,.65)");dg.addColorStop(1,"rgba(0,0,0,0)");ctx.fillStyle=dg;ctx.beginPath();ctx.arc(0,cy,W*.6,0,6.283);ctx.fill();ctx.globalCompositeOperation="lighter";}
+  else if(A===13||A===15){for(let i=0;i<7;i++){ctx.strokeStyle=hsl((i*51+t*30)%360,95,70,(A===15?.4:.28)*lum);ctx.lineWidth=(A===15?3:2)*S/220;ctx.beginPath();ctx.ellipse(0,cy,W*(1.1+i*.07),H*(.9+i*.07),0,Math.PI,6.283);ctx.stroke();}}
+}
+function drawPolyp(ctx,g,p,t,x,y,S,glowUp){
+  ctx.save();ctx.translate(x,y);
+  ctx.fillStyle="rgba(120,150,150,.25)";ctx.beginPath();ctx.ellipse(0,0,S*.35,S*.05,0,0,6.283);ctx.fill();
+  const sway=Math.sin(t*.8)*S*.02;
+  ctx.strokeStyle=hsl(p.hue,40,60,.7);ctx.lineWidth=S*.05;ctx.lineCap="round";ctx.beginPath();ctx.moveTo(0,0);ctx.quadraticCurveTo(sway,-S*.2,sway*1.5,-S*.38);ctx.stroke();
+  const cx=sway*1.5,cy=-S*.38;
+  if(glowUp){const rg=ctx.createRadialGradient(cx,cy,0,cx,cy,S*.5);rg.addColorStop(0,"hsla(48,95%,70%,.45)");rg.addColorStop(1,"hsla(48,95%,60%,0)");ctx.fillStyle=rg;ctx.beginPath();ctx.arc(cx,cy,S*.5,0,6.283);ctx.fill();}
+  ctx.fillStyle=hsl(p.hue,65,62,.8);ctx.beginPath();ctx.moveTo(cx-S*.1,cy);ctx.quadraticCurveTo(cx,cy+S*.1,cx+S*.1,cy);ctx.lineTo(cx+S*.06,cy-S*.08);ctx.lineTo(cx-S*.06,cy-S*.08);ctx.closePath();ctx.fill();
+  for(let i=0;i<9;i++){const a=-Math.PI*(.1+.8*i/8);ctx.strokeStyle=hsl(p.glow,85,72,.7);ctx.lineWidth=S*.01;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*S*.06,cy-S*.08);
+    ctx.quadraticCurveTo(cx+Math.cos(a)*S*.14,cy-S*.08+Math.sin(a)*S*.12,cx+Math.cos(a+Math.sin(t+i)*.2)*S*.2,cy-S*.08+Math.sin(a)*S*.2);ctx.stroke();}
+  ctx.restore();
+}
+
+/* ---------- canvas plumbing ---------- */
+const views=[];
+function mount(canvas,draw){const v={canvas,ctx:canvas.getContext("2d"),draw,w:0,h:0,vis:true};
+  const fit=()=>{const r=canvas.getBoundingClientRect(),d=Math.min(2,devicePixelRatio||1);v.w=r.width;v.h=r.height;canvas.width=Math.max(1,r.width*d);canvas.height=Math.max(1,r.height*d);v.ctx.setTransform(d,0,0,d,0,0);if(REDUCE)paint(v,performance.now()/1000);};
+  new ResizeObserver(fit).observe(canvas);
+  new IntersectionObserver(es=>es.forEach(e=>v.vis=e.isIntersecting)).observe(canvas);
+  fit();views.push(v);return v;}
+function snow(ctx,w,h,t,seed){ctx.fillStyle="rgba(200,230,230,.18)";for(let i=0;i<Math.floor(w*h/9000);i++){const x=((i*97.3+seed)%w),y=((i*53.7+t*6*(1+i%3))%h);ctx.fillRect(x,h-y,1.2,1.2);}}
+function paint(v,t){const {ctx,w,h}=v;ctx.clearRect(0,0,w,h);const bg=ctx.createLinearGradient(0,0,0,h);bg.addColorStop(0,"#062331");bg.addColorStop(1,"#020E14");ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);v.draw(ctx,w,h,t);}
+function loop(ts){const t=ts/1000;for(const v of views)if(v.vis&&v.w>0)paint(v,t);if(!REDUCE)requestAnimationFrame(loop);}
+
+const randomGenome=()=>genesis(rnd(160));
+
+/* hero tank: a small drifting swarm */
+const swarm=[];
+function seedSwarm(){swarm.length=0;const n=innerWidth<620?5:8;for(let i=0;i<n;i++){const g=randomGenome();swarm.push({g,p:pheno(g),x:Math.random(),y:.25+Math.random()*.7,s:.55+Math.random()*.6,ph:Math.random()*6,vx:(Math.random()-.5)*.004});}}
+seedSwarm();
+mount(document.getElementById("heroTank"),(ctx,w,h,t)=>{
+  snow(ctx,w,h,t,11);const base=Math.min(w,h)*.26;
+  for(const j of swarm){const S=base*j.s;const c=Math.max(0,Math.sin(t*j.p.pulse*2.2+j.ph));
+    if(!REDUCE){j.y-=(.0006+c*c*.0026)*(1.2-j.s*.4);j.x+=j.vx*.1+Math.sin(t*.2+j.ph)*.0002;
+      if(j.y<-.25){j.y=1.25;j.x=Math.random();} if(j.x<-.1)j.x=1.1; if(j.x>1.1)j.x=-.1;}
+    drawJelly(ctx,j.g,j.p,t,j.x*w,j.y*h,S,{phase:j.ph,alpha:.55+.45*j.s/1.15});}
+});
+
+/* life-cycle tanks */
+const cycG=randomGenome();cycG[XG.FLAGS]|=XG.F_IMM;const cycP=pheno(cycG);
+document.querySelectorAll("canvas[data-stage]").forEach(cv=>{const st=cv.dataset.stage;
+  mount(cv,(ctx,w,h,t)=>{snow(ctx,w,h,t,st.length*7);const S=Math.min(w,h)*.8;
+    if(st==="polyp")drawPolyp(ctx,cycG,cycP,t,w/2,h*.9,S*.9,false);
+    else if(st==="rebirth"){drawJelly(ctx,cycG,cycP,t,w*.62,h*.38,S*.55,{alpha:.35,dim:.5});drawPolyp(ctx,cycG,cycP,t,w*.3,h*.92,S*.7,true);}
+    else drawJelly(ctx,cycG,cycP,t,w/2,h*(st==="spent"?.5:.42),S*.62,{alpha:st==="spent"?.4:1,dim:st==="spent"?.25:1});});});
+
+/* ---------- lab ---------- */
+const lab={A:randomGenome(),B:randomGenome(),C:null,origin:null,busy:false};
+function tankView(id,key){const el=document.getElementById(id);
+  mount(el.querySelector("canvas"),(ctx,w,h,t)=>{snow(ctx,w,h,t,id.length*13);const g=lab[key];if(!g)return;const p=pheno(g);
+    const S=Math.min(w*1.05,h*.95)*.72;drawJelly(ctx,g,p,t,w/2,h*.42,S,{phase:key==="B"?2:0});});}
+tankView("tankA","A");tankView("tankC","C");tankView("tankB","B");
+function meta(g){const p=pheno(g),f=g[XG.FLAGS],m=[`Gen ${g[XG.GEN]}`,`Vitality ${g[XG.VIT]}`,`Lumen ${g[XG.LUMEN]}`,TIERNAME[p.tier]];
+  if(f&XG.F_IMM)m.push("Immortal");if(f&XG.F_BLOOM)m.push("Bloom-born");if(f&XG.F_GEN)m.push("Genesis");return m.map(s=>`<span>${s}</span>`).join("");}
+function fillCap(id,g){const el=document.getElementById(id);el.querySelector(".name").textContent=g?nameOf(g):"";el.querySelector(".meta").innerHTML=g?meta(g):"";}
+function chips(g,t,origin){return `<span class="alle">${[0,1,2,3].map(j=>{const v=get(g,t,j);const o=origin?" o"+origin[t][j]:"";return `<i class="chip t${TIER(v)}${j?" rec":""}${o}" title="${TIERNAME[TIER(v)]} allele ${v}">${v.toString(16)}</i>`;}).join("")}</span>`;}
+function renderLab(){fillCap("tankA",lab.A);fillCap("tankB",lab.B);fillCap("tankC",lab.C);
+  document.getElementById("emptyC").hidden=!!lab.C;document.getElementById("childActions").hidden=!lab.C;
+  document.getElementById("geneRows").innerHTML=TRAITS.map((n,t)=>`<tr><td class="trait">${n}</td><td>${chips(lab.A,t)}</td><td>${lab.C?chips(lab.C,t,lab.origin):"<span style='color:var(--muted)'>—</span>"}</td><td>${chips(lab.B,t)}</td><td class="expr">${lab.C?describe(t,get(lab.C,t,0)):""}</td></tr>`).join("");
+  document.getElementById("uriline").textContent=lab.C?"URI: xellies:1:"+hex(lab.C):"";}
+document.querySelectorAll("[data-new]").forEach(b=>b.addEventListener("click",()=>{lab[b.dataset.new]=randomGenome();renderLab();}));
+document.querySelectorAll("[data-keep]").forEach(b=>b.addEventListener("click",()=>{if(!lab.C)return;lab[b.dataset.keep]=lab.C;lab.C=null;lab.origin=null;document.getElementById("seedline").textContent="";renderLab();}));
+const spawnBtn=document.getElementById("spawnBtn");
+spawnBtn.addEventListener("click",async()=>{if(lab.busy)return;lab.busy=true;spawnBtn.disabled=true;spawnBtn.textContent="Waiting a ledger…";
+  const {pool,intent,last}=await derivePool();const tideNow=tide;await new Promise(r=>setTimeout(r,REDUCE?0:650));
+  const r=spawn(lab.A,lab.B,pool,document.getElementById("bloomT").checked);lab.C=r.genome;lab.origin=r.origin;
+  document.getElementById("seedline").textContent=`Intent ${hex(intent).slice(0,16)}…  Ledger hash ${hex(last).slice(0,16)}…  Tide ${hex(tideNow).slice(0,16)}…`;
+  lab.busy=false;spawnBtn.disabled=false;spawnBtn.textContent="Spawn again";renderLab();});
+renderLab();
+
+/* ---------- plate ---------- */
+const plate=[];
+function buildPlate(){const grid=document.getElementById("plateGrid");grid.innerHTML="";plate.length=0;
+  for(let i=0;i<9;i++){const g=randomGenome();const b=document.createElement("button");b.className="spec";b.type="button";
+    const no=String(i+1).padStart(2,"0");
+    b.innerHTML=`<canvas aria-hidden="true"></canvas><span class="lbl"><i>${nameOf(g)}</i><span>${TIERNAME[pheno(g).tier]}, fig. ${no}</span></span>`;
+    b.setAttribute("aria-label",`Send ${nameOf(g)} to the lab as parent A`);
+    b.addEventListener("click",()=>{lab.A=g;lab.C=null;lab.origin=null;renderLab();document.getElementById("lab").scrollIntoView({behavior:REDUCE?"auto":"smooth"});});
+    grid.appendChild(b);const p=pheno(g);
+    mount(b.querySelector("canvas"),(ctx,w,h,t)=>{snow(ctx,w,h,t,i*31);drawJelly(ctx,g,p,t,w/2,h*.44,Math.min(w,h*1.1)*.62,{phase:i});});}
+  views.splice(0,views.length,...views.filter(v=>document.body.contains(v.canvas)));}
+buildPlate();document.getElementById("replate").addEventListener("click",buildPlate);
+
+/* genome strip */
+document.getElementById("strip").innerHTML=Array.from({length:32},(_,i)=>{const c=i<24?"tr":i===24?"gen":i===25?"vit":i===26?"lum":i===27?"flg":"salt";return `<div class="${c}">${i}</div>`;}).join("");
+
+window.XelliesRender={pheno,drawJelly,drawPolyp,nameOf,mount,snow,TIERNAME,TIER,XG,get,
+  prune(){views.splice(0,views.length,...views.filter(v=>document.body.contains(v.canvas)));}};
+requestAnimationFrame(loop);
+})();
+</script>
+<script>
+/* Xellies: play with the Reef hooks through Xaman.
+ *
+ * Reads come straight from a Xahau node over WebSocket (no backend).
+ * Writes are Xaman sign requests: the player approves every transaction.
+ *
+ *   Hatch   Payment to the Reef, exact PRICE, HookParameters OP=H
+ *   Spawn   Payment to the Reef, exact SPAWN, HookParameters OP=S, A, B
+ *   Keeper  Invoke to the Reef with PRICE / SPAWN / GENESIS / BLOOM / MATURE
+ *
+ * After signing, the site follows the intent the hook records under the
+ * transaction id: P recorded, R rolled, G minted, F failed, L lapsed.
+ */
+(() => {
+"use strict";
+const CFG = window.XELLIES_CONFIG || {};
+const NET = (CFG.NETWORKS || {})[CFG.NETWORK] || {};
+const R = window.XelliesRender;
+const $ = id => document.getElementById(id);
+const REEF = NET.REEF;
+const SPL = CFG.SECONDS_PER_LEDGER || 3.6;
+const PREFIX = "xellies:1:";
+
+/* ---------- small helpers ---------- */
+const enc = new TextEncoder(), dec = new TextDecoder();
+const toHex = b => Array.from(b, x => x.toString(16).padStart(2, "0")).join("").toUpperCase();
+const fromHex = h => Uint8Array.from(h.match(/../g) || [], x => parseInt(x, 16));
+const asciiHex = s => toHex(enc.encode(s));
+const hexAscii = h => { try { return dec.decode(fromHex(h)); } catch (e) { return ""; } };
+const padKey = hex => hex.padStart(64, "0");
+const u32 = (h, byte) => parseInt(h.substr(byte * 2, 8), 16);
+const xah = drops => (Number(drops) / 1e6).toLocaleString(undefined, { maximumFractionDigits: 6 });
+const param = (name, valueHex) => ({ HookParameter: { HookParameterName: asciiHex(name), HookParameterValue: valueHex } });
+async function sha512h(bytes) { const d = await crypto.subtle.digest("SHA-512", bytes); return new Uint8Array(d).slice(0, 32); }
+function span(ledgers) {
+  const s = Math.max(0, ledgers) * SPL;
+  if (s < 90) return "about a minute";
+  if (s < 3600) return `about ${Math.round(s / 60)} min`;
+  const h = s / 3600;
+  if (h < 36) return `about ${h < 10 ? Math.round(h * 10) / 10 : Math.round(h)} h`;
+  return `about ${Math.round(h / 24)} days`;
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+/* ---------- ledger over WebSocket ---------- */
+let ws = null, wsOpen = null, nextId = 1;
+const waiting = new Map();
+function connect() {
+  if (wsOpen) return wsOpen;
+  wsOpen = new Promise((resolve, reject) => {
+    ws = new WebSocket(NET.WSS);
+    ws.onopen = () => resolve();
+    ws.onerror = () => { wsOpen = null; reject(new Error(`Can't reach ${NET.label || "the Xahau"} node.`)); };
+    ws.onclose = () => {
+      wsOpen = null;
+      for (const [, w] of waiting) w.reject(new Error("The connection to Xahau closed. Refresh to reconnect."));
+      waiting.clear();
+    };
+    ws.onmessage = e => {
+      const m = JSON.parse(e.data), w = waiting.get(m.id);
+      if (!w) return;
+      waiting.delete(m.id);
+      if (m.status === "success") w.resolve(m.result);
+      else w.reject(Object.assign(new Error(m.error_message || m.error), { code: m.error }));
+    };
+  });
+  return wsOpen;
+}
+async function rpc(cmd) {
+  if (window.XelliesLedgerOverride) return window.XelliesLedgerOverride(cmd); // test seam
+  await connect();
+  const id = nextId++;
+  return new Promise((resolve, reject) => { waiting.set(id, { resolve, reject }); ws.send(JSON.stringify({ ...cmd, id })); });
+}
+async function hookState(keyHex) {
+  try {
+    const r = await rpc({ command: "ledger_entry", ledger_index: "validated",
+      hook_state: { account: REEF, key: padKey(keyHex), namespace_id: CFG.NAMESPACE } });
+    return r.node && r.node.HookStateData;
+  } catch (e) {
+    if (e.code === "entryNotFound") return null;
+    throw e;
+  }
+}
+async function ledgerNow() {
+  const r = await rpc({ command: "ledger", ledger_index: "validated" });
+  return Number(r.ledger_index || (r.ledger && r.ledger.ledger_index));
+}
+
+/* ---------- reading the Reef ---------- */
+const reef = { price: null, spawn: null, genesis: null, bloom: 0, mature: CFG.DEFAULT_MATURE || 4096, now: 0, ok: false };
+async function readReef() {
+  const [price, spawn, genesis, bloom, mature, now] = await Promise.all([
+    hookState(asciiHex("PRICE")), hookState(asciiHex("SPAWN")), hookState(asciiHex("GENESIS")),
+    hookState(asciiHex("BLOOM")), hookState(asciiHex("MATURE")), ledgerNow()]);
+  reef.price = price ? BigInt("0x" + price) : null;
+  reef.spawn = spawn ? BigInt("0x" + spawn) : null;
+  reef.genesis = genesis ? u32(genesis, 0) : 0;
+  reef.bloom = bloom ? u32(bloom, 0) : 0;
+  reef.mature = mature ? u32(mature, 0) : (CFG.DEFAULT_MATURE || 4096);
+  reef.now = now;
+  reef.ok = reef.price !== null;
+}
+
+async function readJellies(account) {
+  const tokens = [];
+  let marker;
+  for (let page = 0; page < 10; page++) {
+    const r = await rpc({ command: "account_objects", account, type: "uri_token", limit: 400,
+      ledger_index: "validated", ...(marker ? { marker } : {}) });
+    tokens.push(...(r.account_objects || []));
+    if (!r.marker) break;
+    marker = r.marker;
+  }
+  const mine = tokens.filter(t => t.Issuer === REEF);
+  const out = [];
+  for (const t of mine) {
+    const uri = hexAscii(t.URI || "");
+    if (!uri.startsWith(PREFIX) || uri.length !== PREFIX.length + 64) continue;
+    const genome = fromHex(uri.slice(PREFIX.length));
+    const key = toHex(await sha512h(enc.encode(uri)));
+    out.push({ id: t.index, uri, genome, key, life: null });
+  }
+  const lives = await Promise.all(out.map(j => hookState(j.key).catch(() => null)));
+  out.forEach((j, i) => { j.life = lives[i]; });
+  return out;
+}
+
+/* A jelly's stage, from its life record (born 4, spawns 1, ready 4, genome 32). */
+function stageOf(j) {
+  const vit = j.genome[25];
+  if (!j.life) return { kind: "unknown", text: "No life record yet", ready: false };
+  const born = u32(j.life, 0), spawns = parseInt(j.life.substr(8, 2), 16), readyAt = u32(j.life, 5);
+  const left = vit - spawns;
+  if (reef.now < born + reef.mature)
+    return { kind: "polyp", text: `Polyp, matures in ${span(born + reef.mature - reef.now)}`, ready: false };
+  if (left <= 0) return { kind: "spent", text: "Spent", ready: false };
+  if (reef.now < readyAt)
+    return { kind: "rest", text: `Resting, ready in ${span(readyAt - reef.now)}`, ready: false };
+  return { kind: "ready", text: `Ready, ${left} spawn${left === 1 ? "" : "s"} left`, ready: true };
+}
+
+/* ---------- Xaman ---------- */
+let xumm = null, account = null, jellies = [], selected = [], setupMsg = "";
+
+function setupXaman() {
+  if (!CFG.XAMAN_API_KEY) { setupMsg = "This site isn't connected to Xaman yet: add your Xaman API key in the configuration block at the top of index.html."; notice(setupMsg); return; }
+  if (typeof window.Xumm !== "function") { setupMsg = "Couldn't load the Xaman SDK. Check your connection and refresh."; notice(setupMsg); return; }
+  setupMsg = "";
+  xumm = new window.Xumm(CFG.XAMAN_API_KEY);
+  xumm.on("success", async () => { const a = await xumm.user.account; if (a) signedIn(a); });
+  xumm.on("logout", signedOut);
+  xumm.on("error", e => notice(`Xaman: ${e && e.message ? e.message : "sign-in failed"}. Try again.`));
+  Promise.resolve(xumm.user.account).then(a => { if (a) signedIn(a); }).catch(() => {});
+}
+
+async function signedIn(a) {
+  if (account === a) return;
+  account = a;
+  $("acct").innerHTML = "";
+  const who = document.createElement("span");
+  who.className = "who-acct";
+  who.textContent = `${a.slice(0, 6)}…${a.slice(-4)}`;
+  const out = document.createElement("button");
+  out.className = "linkbtn"; out.type = "button"; out.textContent = "Sign out";
+  out.addEventListener("click", () => xumm.logout());
+  $("acct").append(who, out);
+  $("playBar").hidden = false;
+  $("keeper").hidden = !(CFG.KEEPER && CFG.KEEPER === a);
+  await refresh();
+}
+function signedOut() {
+  account = null; jellies = []; selected = [];
+  $("acct").innerHTML = "";
+  const b = document.createElement("button");
+  b.className = "btn spawn-btn"; b.id = "connectBtn"; b.type = "button"; b.textContent = "Sign in with Xaman";
+  b.addEventListener("click", signIn);
+  $("acct").append(b);
+  $("playBar").hidden = true; $("keeper").hidden = true;
+  renderMine();
+}
+function signIn() {
+  if (!xumm) { setupXaman(); if (!xumm) return; }
+  xumm.authorize().catch(e => notice(`Sign-in didn't complete: ${e && e.message ? e.message : "cancelled"}.`));
+}
+
+/* Sign request sheet: push to the player's phone, with QR and deep link fallback. */
+let sheetUuid = null;
+function openSheet(title) {
+  $("sheetTitle").textContent = title;
+  $("sheetStatus").textContent = "Preparing the sign request…";
+  $("sheetQr").hidden = true; $("sheetOpen").hidden = true;
+  $("sheet").hidden = false;
+  $("sheetCancel").focus();
+}
+function closeSheet() { $("sheet").hidden = true; sheetUuid = null; }
+
+async function sign(txjson, title) {
+  openSheet(title);
+  let created, resolved;
+  try {
+    ({ created, resolved } = await xumm.payload.createAndSubscribe({
+      txjson,
+      options: { force_network: NET.XAMAN_NETWORK, submit: true },
+      custom_meta: { instruction: title }
+    }, ev => {
+      if ("opened" in ev.data) $("sheetStatus").textContent = "Opened in Xaman. Review and approve it there.";
+      if ("signed" in ev.data) return ev.data;
+    }));
+  } catch (e) {
+    closeSheet();
+    throw new Error(`Couldn't create the sign request: ${e.message || e}`);
+  }
+  sheetUuid = created.uuid;
+  $("sheetStatus").textContent = created.pushed
+    ? "Sent to Xaman on your phone. Didn't get it? Scan the code or open it directly."
+    : "Scan with Xaman, or open it directly on this device.";
+  $("sheetQr").src = created.refs.qr_png; $("sheetQr").hidden = false;
+  $("sheetOpen").href = created.next.always; $("sheetOpen").hidden = false;
+
+  const result = await resolved;
+  closeSheet();
+  if (!result || !result.signed) return null;
+  const p = await xumm.payload.get(created.uuid);
+  return { txid: p.response.txid, dispatched: p.response.dispatched_result };
+}
+
+/* ---------- following a transaction to its jelly ---------- */
+const STATUS = {
+  P: "Recorded. The roll lands next ledger.",
+  R: "Rolled. Minting your jelly…",
+  G: "Minted. It's in your reef.",
+  F: "The mint failed. The Reef owes you a refund; this transaction id is your claim.",
+  L: "A parent was burned before the roll, so this spawn lapsed."
+};
+async function hookReason(txid) {
+  try {
+    const t = await rpc({ command: "tx", transaction: txid });
+    const ex = (t.meta && t.meta.HookExecutions) || [];
+    for (const e of ex) {
+      const s = hexAscii(e.HookExecution.HookReturnString || "").replace(/^xellies:\s*/, "").replace(/\0/g, "").trim();
+      if (s) return { validated: !!t.validated, result: t.meta.TransactionResult, reason: s };
+    }
+    return { validated: !!t.validated, result: t.meta && t.meta.TransactionResult, reason: "" };
+  } catch (e) { return null; }
+}
+async function follow(item, txid) {
+  item.link(NET.EXPLORER_TX + txid);
+  // 1. wait for validation and learn whether the hook accepted it
+  for (let i = 0; i < 30; i++) {
+    const h = await hookReason(txid);
+    if (h && h.validated) {
+      if (h.result !== "tesSUCCESS") { item.set("fail", h.reason ? `The Reef said no: ${h.reason}` : `Failed on ledger (${h.result}).`); return; }
+      break;
+    }
+    item.set("wait", "Waiting for the ledger to validate it…");
+    await sleep(3000);
+  }
+  if (!item.tracksIntent) { item.set("done", "Applied."); await refresh(); return; }
+  // 2. follow the intent the hook recorded under this transaction id
+  let last = "";
+  for (let i = 0; i < 60; i++) {
+    const s = await hookState(txid).catch(() => null);
+    const st = s ? hexAscii(s.substr(42, 2)) : "";
+    if (st && st !== last) {
+      last = st;
+      item.set(st === "G" ? "done" : (st === "F" || st === "L") ? "fail" : "wait", STATUS[st] || `Status ${st}`);
+      if (st === "G" || st === "F" || st === "L") { await refresh(); return; }
+    }
+    await sleep(3000);
+  }
+  item.set("wait", "Still waiting on the Reef. Refresh in a minute to check your reef.");
+}
+function activity(label) {
+  const li = document.createElement("li");
+  const dot = document.createElement("i"), txt = document.createElement("span"), a = document.createElement("a");
+  dot.className = "dot wait"; a.target = "_blank"; a.rel = "noopener"; a.textContent = "View transaction"; a.hidden = true;
+  li.append(dot, txt, a);
+  $("activity").prepend(li);
+  const item = {
+    tracksIntent: true,
+    set(kind, text) { dot.className = "dot " + kind; txt.textContent = `${label}: ${text}`; },
+    link(href) { a.href = href; a.hidden = false; }
+  };
+  item.set("wait", "Waiting for your approval in Xaman…");
+  return item;
+}
+
+async function act(label, txjson, tracksIntent = true) {
+  const item = activity(label);
+  item.tracksIntent = tracksIntent;
+  try {
+    const r = await sign(txjson, label);
+    if (!r) { item.set("fail", "You declined it in Xaman."); return; }
+    if (!r.txid) { item.set("fail", "Xaman didn't return a transaction id."); return; }
+    await follow(item, r.txid);
+  } catch (e) { item.set("fail", e.message || String(e)); }
+}
+
+/* ---------- actions ---------- */
+function hatch() {
+  if (!reef.ok || reef.price === null) return notice("Hatching isn't open yet.");
+  if (reef.genesis <= 0) return notice("Every genesis polyp has hatched.");
+  act(`Hatch a polyp for ${xah(reef.price)} XAH`, {
+    TransactionType: "Payment", Account: account, Destination: REEF, Amount: reef.price.toString(),
+    HookParameters: [param("OP", asciiHex("H"))]
+  });
+}
+function spawnSelected() {
+  if (selected.length !== 2) return;
+  if (reef.spawn === null) return notice("Spawning isn't open yet.");
+  const [a, b] = selected.map(id => jellies.find(j => j.id === id));
+  act(`Spawn ${R.nameOf(a.genome)} with ${R.nameOf(b.genome)}`, {
+    TransactionType: "Payment", Account: account, Destination: REEF, Amount: reef.spawn.toString(),
+    HookParameters: [param("OP", asciiHex("S")), param("A", a.id), param("B", b.id)]
+  });
+  selected = []; renderMine();
+}
+function keeperSave(ev) {
+  ev.preventDefault();
+  const f = new FormData(ev.target), ps = [];
+  const drops = v => BigInt(Math.round(parseFloat(v) * 1e6)).toString(16).padStart(16, "0").toUpperCase();
+  const u32h = n => (n >>> 0).toString(16).padStart(8, "0").toUpperCase();
+  if (f.get("price")) ps.push(param("PRICE", drops(f.get("price"))));
+  if (f.get("spawn")) ps.push(param("SPAWN", drops(f.get("spawn"))));
+  if (f.get("genesis")) ps.push(param("GENESIS", u32h(parseInt(f.get("genesis"), 10))));
+  if (f.get("mature")) ps.push(param("MATURE", u32h(parseInt(f.get("mature"), 10))));
+  if (f.get("bloom") !== "") {
+    const h = parseFloat(f.get("bloom"));
+    ps.push(param("BLOOM", u32h(h > 0 ? reef.now + Math.ceil(h * 3600 / SPL) : 0)));
+  }
+  if (!ps.length) return notice("Fill in at least one setting to change.");
+  act("Update Reef settings", { TransactionType: "Invoke", Account: account, Destination: REEF, HookParameters: ps }, false);
+}
+
+/* ---------- rendering ---------- */
+function notice(msg) { const n = $("playNotice"); n.textContent = msg; n.hidden = !msg; }
+function renderStats() {
+  const bloomOn = reef.bloom && reef.now <= reef.bloom;
+  const cells = [
+    ["Hatch price", reef.price !== null ? `${xah(reef.price)} XAH` : "Not open"],
+    ["Spawn fee", reef.spawn !== null ? `${xah(reef.spawn)} XAH` : "Not open"],
+    ["Genesis polyps left", reef.ok ? reef.genesis.toLocaleString() : "—"],
+    ["Bloom", bloomOn ? `On, ends in ${span(reef.bloom - reef.now)}` : "Off"],
+    ["Network", NET.label || "—"]
+  ];
+  $("reefStats").innerHTML = "";
+  for (const [k, v] of cells) {
+    const d = document.createElement("div"), dt = document.createElement("dt"), dd = document.createElement("dd");
+    dt.textContent = k; dd.textContent = v; d.append(dt, dd); $("reefStats").append(d);
+  }
+  $("hatchBtn").disabled = !reef.ok || reef.genesis <= 0;
+  $("hatchBtn").textContent = reef.price !== null ? `Hatch a polyp, ${xah(reef.price)} XAH` : "Hatch a polyp";
+}
+function renderMine() {
+  const box = $("mine");
+  box.innerHTML = "";
+  if (!account) { R.prune(); updateSpawnBtn(); return; }
+  if (!jellies.length) {
+    const p = document.createElement("p");
+    p.className = "empty-reef";
+    p.textContent = reef.ok ? "No Xellies in this account yet. Hatch a polyp to start your reef." : "The Reef isn't open on this network yet.";
+    box.append(p);
+  }
+  for (const j of jellies) {
+    const st = stageOf(j), p = R.pheno(j.genome);
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "jelly " + st.kind;
+    b.setAttribute("aria-pressed", selected.includes(j.id) ? "true" : "false");
+    b.disabled = !st.ready;
+    const cv = document.createElement("canvas"); cv.setAttribute("aria-hidden", "true");
+    const nm = document.createElement("i"); nm.textContent = R.nameOf(j.genome);
+    const sub = document.createElement("span"); sub.textContent = `Gen ${j.genome[24]}, ${R.TIERNAME[p.tier]}`;
+    const s = document.createElement("span"); s.className = "st"; s.textContent = st.text;
+    const lbl = document.createElement("span"); lbl.className = "lbl"; lbl.append(nm, sub, s);
+    b.append(cv, lbl);
+    b.setAttribute("aria-label", `${R.nameOf(j.genome)}. ${st.text}.${st.ready ? " Select to spawn." : ""}`);
+    b.addEventListener("click", () => {
+      if (selected.includes(j.id)) selected = selected.filter(x => x !== j.id);
+      else if (selected.length < 2) selected.push(j.id);
+      else selected = [selected[1], j.id];
+      renderMine();
+    });
+    box.append(b);
+    R.mount(cv, (ctx, w, h, t) => {
+      R.snow(ctx, w, h, t, j.genome[28]);
+      if (st.kind === "polyp") R.drawPolyp(ctx, j.genome, p, t, w / 2, h * .92, Math.min(w, h) * .8, false);
+      else R.drawJelly(ctx, j.genome, p, t, w / 2, h * .44, Math.min(w, h * 1.1) * .6,
+        { alpha: st.kind === "spent" ? .45 : 1, dim: st.kind === "spent" ? .3 : 1, phase: j.genome[29] / 40 });
+    });
+  }
+  R.prune();
+  updateSpawnBtn();
+}
+function updateSpawnBtn() {
+  const b = $("spawnMineBtn");
+  b.disabled = selected.length !== 2 || reef.spawn === null;
+  b.textContent = reef.spawn !== null ? `Spawn selected, ${xah(reef.spawn)} XAH` : "Spawn selected";
+  $("selHint").textContent = selected.length === 2 ? "Two medusae selected." :
+    selected.length === 1 ? "Select one more ready medusa." : "Select two ready medusae to spawn them.";
+}
+
+let refreshing = false;
+async function refresh() {
+  if (refreshing) return;
+  refreshing = true; $("refreshBtn").disabled = true;
+  try {
+    notice(setupMsg);
+    await readReef();
+    renderStats();
+    if (account) {
+      try { jellies = await readJellies(account); }
+      catch (e) {
+        jellies = [];
+        if (e.code === "actNotFound") notice("This account isn't activated on this network yet. Fund it with some XAH first.");
+        else throw e;
+      }
+      selected = selected.filter(id => jellies.some(j => j.id === id && stageOf(j).ready));
+      renderMine();
+    }
+  } catch (e) {
+    notice(e.message || "Couldn't read the Reef. Refresh to try again.");
+  } finally { refreshing = false; $("refreshBtn").disabled = false; }
+}
+
+/* ---------- wire up ---------- */
+function init() {
+  if (!R || !REEF) { notice("Site configuration is incomplete: check the configuration block at the top of index.html."); return; }
+  $("netNote").textContent = `Sign in with Xaman to hatch and spawn on ${NET.label}.`;
+  $("connectBtn").addEventListener("click", signIn);
+  $("hatchBtn").addEventListener("click", hatch);
+  $("spawnMineBtn").addEventListener("click", spawnSelected);
+  $("refreshBtn").addEventListener("click", refresh);
+  $("keeperForm").addEventListener("submit", keeperSave);
+  $("sheetCancel").addEventListener("click", () => {
+    if (sheetUuid && xumm) xumm.payload.cancel(sheetUuid).catch(() => {});
+    closeSheet();
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !$("sheet").hidden) $("sheetCancel").click(); });
+  setupXaman();
+  refresh();
+  setInterval(() => { if (account && document.visibilityState === "visible") refresh(); }, 60000);
+}
+init();
+})();
+</script>
+</body>
+</html>
