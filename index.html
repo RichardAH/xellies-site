@@ -19,6 +19,7 @@ window.XELLIES_CONFIG = {
     testnet: {
       label: "Xahau Testnet",
       XAMAN_NETWORK: "XAHAUTESTNET",          // Xaman force_network value
+      NETWORK_ID: 21338,                      // required in txjson so Xaman accepts Xahau-only types (Invoke)
       WSS: "wss://xahau-test.net",
       REEF: "rXELLiESgJYepe35dbkpPByi3uas6jLAW",
       EXPLORER_TX: "https://xahau-testnet.xrplwin.com/tx/"
@@ -26,6 +27,7 @@ window.XELLIES_CONFIG = {
     mainnet: {
       label: "Xahau",
       XAMAN_NETWORK: "XAHAU",
+      NETWORK_ID: 21337,
       WSS: "wss://xahau.network",
       REEF: "rXELLiESgJYepe35dbkpPByi3uas6jLAW",
       EXPLORER_TX: "https://xahau.xrplwin.com/tx/"
@@ -1054,7 +1056,9 @@ async function sign(txjson, title) {
   let created, resolved;
   try {
     ({ created, resolved } = await xumm.payload.createAndSubscribe({
-      txjson,
+      // NetworkID tells Xaman which network's transaction types apply; without it
+      // Xahau-only types such as Invoke are rejected (error 603).
+      txjson: { ...txjson, NetworkID: NET.NETWORK_ID },
       options: { force_network: NET.XAMAN_NETWORK, submit: true },
       custom_meta: { instruction: title }
     }, ev => {
